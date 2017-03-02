@@ -30,7 +30,25 @@
 DECLARE_HASHTABLE(hash_table, UID_HASH_BITS);
 
 static DEFINE_MUTEX(uid_lock);
-static struct proc_dir_entry *parent;
+static struct proc_dir_entry *cpu_parent;
+static struct proc_dir_entry *io_parent;
+static struct proc_dir_entry *proc_parent;
+
+struct io_stats {
+	u64 read_bytes;
+	u64 write_bytes;
+	u64 rchar;
+	u64 wchar;
+	u64 fsync;
+};
+
+#define UID_STATE_FOREGROUND	0
+#define UID_STATE_BACKGROUND	1
+#define UID_STATE_BUCKET_SIZE	2
+
+#define UID_STATE_TOTAL_CURR	2
+#define UID_STATE_TOTAL_LAST	3
+#define UID_STATE_SIZE		4
 
 struct uid_entry {
 	uid_t uid;
@@ -215,6 +233,7 @@ static void add_uid_io_curr_stats(struct uid_entry *uid_entry,
 	io_curr->write_bytes += compute_write_bytes(task);
 	io_curr->rchar += task->ioac.rchar;
 	io_curr->wchar += task->ioac.wchar;
+	io_curr->fsync += task->ioac.syscfs;
 }
 
 static void clean_uid_io_last_stats(struct uid_entry *uid_entry,
@@ -226,6 +245,7 @@ static void clean_uid_io_last_stats(struct uid_entry *uid_entry,
 	io_last->write_bytes -= compute_write_bytes(task);
 	io_last->rchar -= task->ioac.rchar;
 	io_last->wchar -= task->ioac.wchar;
+	io_last->fsync -= task->ioac.syscfs;
 }
 
 static void update_io_stats_locked(void)
@@ -262,11 +282,13 @@ static void update_io_stats_locked(void)
 			io_curr->write_bytes - io_last->write_bytes;
 		io_bucket->rchar += io_curr->rchar - io_last->rchar;
 		io_bucket->wchar += io_curr->wchar - io_last->wchar;
+		io_bucket->fsync += io_curr->fsync - io_last->fsync;
 
 		io_last->read_bytes = io_curr->read_bytes;
 		io_last->write_bytes = io_curr->write_bytes;
 		io_last->rchar = io_curr->rchar;
 		io_last->wchar = io_curr->wchar;
+		io_last->fsync = io_curr->fsync;
 	}
 }
 
@@ -280,7 +302,7 @@ static int uid_io_show(struct seq_file *m, void *v)
 	update_io_stats_locked();
 
 	hash_for_each(hash_table, bkt, uid_entry, hash) {
-		seq_printf(m, "%d %llu %llu %llu %llu %llu %llu %llu %llu\n",
+		seq_printf(m, "%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
 			uid_entry->uid,
 			uid_entry->io[UID_STATE_FOREGROUND].rchar,
 			uid_entry->io[UID_STATE_FOREGROUND].wchar,
@@ -289,7 +311,9 @@ static int uid_io_show(struct seq_file *m, void *v)
 			uid_entry->io[UID_STATE_BACKGROUND].rchar,
 			uid_entry->io[UID_STATE_BACKGROUND].wchar,
 			uid_entry->io[UID_STATE_BACKGROUND].read_bytes,
-			uid_entry->io[UID_STATE_BACKGROUND].write_bytes);
+			uid_entry->io[UID_STATE_BACKGROUND].write_bytes,
+			uid_entry->io[UID_STATE_FOREGROUND].fsync,
+			uid_entry->io[UID_STATE_BACKGROUND].fsync);
 	}
 
 	mutex_unlock(&uid_lock);

@@ -445,8 +445,15 @@ static int __init proc_uid_sys_stats_init(void)
 		goto err;
 	}
 
-	proc_create_data("remove_uid_range", S_IWUGO, parent, &uid_remove_fops,
-					NULL);
+	proc_create_data("stats", 0444, io_parent,
+		&uid_io_fops, NULL);
+
+	proc_parent = proc_mkdir("uid_procstat", NULL);
+	if (!proc_parent) {
+		pr_err("%s: failed to create uid_procstat proc entry\n",
+			__func__);
+		goto err;
+	}
 
 	proc_create_data("set", 0222, proc_parent,
 		&uid_procstat_fops, NULL);

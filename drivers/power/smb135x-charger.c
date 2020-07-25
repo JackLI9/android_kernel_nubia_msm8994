@@ -125,6 +125,9 @@ module_param_named(debug_mask_smb1357, debug_mask_smb1357, int, S_IRUSR | S_IWUS
 #define BATT_MISSING_THERM_BIT		BIT(1)
 
 #define CFG_1A_REG			0x1A
+#ifdef CONFIG_MACH_PM9X
+#define TEMP_MONITOR_EN_BIT	BIT(6)
+#endif
 #define HOT_SOFT_VFLOAT_COMP_EN_BIT	BIT(3)
 #define COLD_SOFT_VFLOAT_COMP_EN_BIT	BIT(2)
 #define HOT_SOFT_CURRENT_COMP_EN_BIT	BIT(1)
@@ -429,6 +432,7 @@ struct smb135x_chg {
 	struct pinctrl			*smb_pinctrl;
 
 	bool				apsd_rerun;
+	bool				id_line_not_connected;
 };
 
 #define RETRY_COUNT 5
@@ -621,6 +625,9 @@ static bool is_usb_slave_present(struct smb135x_chg *chip)
 	bool usb_slave_present;
 	u8 reg;
 	int rc;
+
+	if (chip->id_line_not_connected)
+		return false;
 
 	rc = smb135x_read(chip, STATUS_6_REG, &reg);
 	if (rc < 0) {
@@ -1082,7 +1089,7 @@ static int smb135x_get_usb_chg_current(struct smb135x_chg *chip)
 	else
 		return chip->real_usb_psy_ma;
 }
-#define FCC_MASK			SMB135X_MASK(5, 0)
+#define FCC_MASK			SMB135X_MASK(4, 0)
 #define CFG_1C_REG			0x1C
 static int smb135x_get_fastchg_current(struct smb135x_chg *chip)
 {
@@ -3447,7 +3454,7 @@ static int determine_initial_status(struct smb135x_chg *chip)
 	}
 
 	chip->usb_slave_present = is_usb_slave_present(chip);
-	if (chip->usb_psy) {
+	if (chip->usb_psy && !chip->id_line_not_connected) {
 		pr_debug("setting usb psy usb_otg = %d\n",
 				chip->usb_slave_present);
 		power_supply_set_usb_otg(chip->usb_psy,
@@ -3985,6 +3992,8 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 
 	chip->pinctrl_state_name = of_get_property(node, "pinctrl-names", NULL);
 
+	chip->id_line_not_connected = of_property_read_bool(node,
+						"qcom,id-line-not-connected");
 	return 0;
 }
 
@@ -4325,6 +4334,10 @@ static int smb135x_parallel_charger_probe(struct i2c_client *client,
 	mutex_init(&chip->irq_complete);
 
 	create_debugfs_entries(chip);
+
+#ifdef CONFIG_MACH_PM9X
+	rc = smb135x_masked_write(chip, CFG_1A_REG, TEMP_MONITOR_EN_BIT, 0);
+#endif
 
 	dev_info(chip->dev, "SMB135X USB PARALLEL CHARGER version = %s successfully probed\n",
 			version_str[chip->version]);

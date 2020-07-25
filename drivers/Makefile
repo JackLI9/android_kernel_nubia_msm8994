@@ -158,6 +158,7 @@ obj-$(CONFIG_IIO)		+= iio/
 obj-$(CONFIG_VME_BUS)		+= vme/
 obj-$(CONFIG_IPACK_BUS)		+= ipack/
 obj-$(CONFIG_NTB)		+= ntb/
+obj-$(CONFIG_ANDROID)		+= android/
 
 #MobiCore
 obj-$(CONFIG_MOBICORE_SUPPORT)  += gud/
@@ -168,3 +169,7 @@ obj-$(CONFIG_ESOC)		+= esoc/
 obj-$(CONFIG_BIF)		+= bif/
 obj-$(CONFIG_SENSORS)		+= sensors/
 obj-$(CONFIG_SENSORS_SSC)	+= sensors/
+
+obj-$(CONFIG_CEI_HARDWARE_ID) += hwid/
+
+obj-$(CONFIG_SILEAD_DEVICE) += silead/

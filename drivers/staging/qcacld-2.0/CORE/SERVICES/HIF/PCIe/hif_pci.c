@@ -121,6 +121,40 @@ static int hif_post_recv_buffers_for_pipe(struct HIF_CE_pipe_info *pipe_info);
 //#define BMI_RSP_POLLING
 #define BMI_RSP_TO_MILLISEC  1000
 
+/**
+ * enum ce_host_index: index into the host copy engine attribute
+ * table
+ * @CE_HOST_H2T_HTC_CTRL: host->target HTC control and raw streams
+ * @CE_HOST_T2H_HTT_HTC_CTRL: target->host HTT + HTC control
+ * @CE_HOST_T2H_WMI: target->host WMI
+ * @CE_HOST_H2T_WMI: host->target WMI
+ * @CE_HOST_H2T_HTT: host->target HTT
+ * @CE_HOST_IPA2T_HTC_CTRL: ipa_uc->target HTC control
+ * @CE_HOST_TARGET_HIF: Target autonomous HIF_memcpy
+ * @CE_HOST_DIAG: ce_diag, the Diagnostic Window
+ * Note: This enum is closely tied to the host_CE_config_wlan
+ * table below. Please update the enum if the table is updated
+ */
+
+enum ce_host_index {
+	CE_HOST_H2T_HTC_CTRL = 0,
+	CE_HOST_T2H_HTT_HTC_CTRL = 1,
+	CE_HOST_T2H_WMI = 2,
+	CE_HOST_H2T_WMI = 3,
+	CE_HOST_H2T_HTT = 4,
+#ifndef IPA_UC_OFFLOAD
+	CE_HOST_UNUSED = 5,
+#else
+	CE_HOST_IPA2T_HTC_CTRL = 5,
+#endif
+	CE_HOST_TARGET_HIF = 6,
+	CE_HOST_DIAG = 7,
+};
+
+/**
+ * Note: This structure is closely tied to the enum above.
+ * Please update the enum if the table is updated
+ */
 static struct CE_attr host_CE_config_wlan[] =
 {
         { /* CE0 */ CE_ATTR_FLAGS, 0, 16, 256, 0, NULL, }, /* host->target HTC control and raw streams */
@@ -523,7 +557,14 @@ HIF_PCI_CE_recv_data(struct CE_handle *copyeng, void *ce_context, void *transfer
         }
         compl_queue_tail = compl_state;
 
-        adf_nbuf_unmap_single(scn->adf_dev, (adf_nbuf_t)transfer_context, ADF_OS_DMA_FROM_DEVICE);
+#ifdef HTC_CRP_DEBUG
+        if (CE_HOST_T2H_WMI == pipe_info->pipe_num)
+            adf_nbuf_unmap_single(scn->adf_dev, (adf_nbuf_t)transfer_context,
+                                  ADF_OS_DMA_BIDIRECTIONAL);
+        else
+#endif
+        adf_nbuf_unmap_single(scn->adf_dev, (adf_nbuf_t)transfer_context,
+                               ADF_OS_DMA_FROM_DEVICE);
 
         /*
          * EV #112693 - [Peregrine][ES1][WB342][Win8x86][Performance] BSoD_0x133 occurred in VHT80 UDP_DL
@@ -1499,10 +1540,27 @@ hif_post_recv_buffers_for_pipe(struct HIF_CE_pipe_info *pipe_info)
             return 1;
         }
 
+#ifdef HTC_CRP_DEBUG
+#define HTC_DEBUG_PATTERN 0xF005BA11
+        if (CE_HOST_T2H_WMI == pipe_info->pipe_num) {
+            uint32_t * data;
+            data = (uint32_t *)adf_nbuf_data(nbuf);
+            *data = HTC_DEBUG_PATTERN;
+            *(data + 1) = HTC_DEBUG_PATTERN;
+            *(data + 2) = HTC_DEBUG_PATTERN;
+            *(data + 3) = HTC_DEBUG_PATTERN;
+        }
+#endif
         /*
          * adf_nbuf_peek_header(nbuf, &data, &unused);
          * CE_data = dma_map_single(dev, data, buf_sz, DMA_FROM_DEVICE);
          */
+#ifdef HTC_CRP_DEBUG
+        if (CE_HOST_T2H_WMI == pipe_info->pipe_num)
+            ret = adf_nbuf_map_single(scn->adf_dev, nbuf,
+                                      ADF_OS_DMA_BIDIRECTIONAL);
+        else
+#endif
         ret = adf_nbuf_map_single(scn->adf_dev, nbuf, ADF_OS_DMA_FROM_DEVICE);
 
         if (unlikely(ret != A_STATUS_OK)) {
@@ -1696,7 +1754,14 @@ hif_recv_buffer_cleanup_on_pipe(struct HIF_CE_pipe_info *pipe_info)
     }
     while (CE_revoke_recv_next(ce_hdl, &per_CE_context, (void **)&netbuf, &CE_data) == A_OK)
     {
+#ifdef HTC_CRP_DEBUG
+        if (CE_HOST_T2H_WMI == pipe_info->pipe_num)
+            adf_nbuf_unmap_single(scn->adf_dev, netbuf,
+                                  ADF_OS_DMA_BIDIRECTIONAL);
+        else
+#endif
         adf_nbuf_unmap_single(scn->adf_dev, netbuf, ADF_OS_DMA_FROM_DEVICE);
+
         adf_nbuf_free(netbuf);
     }
 }
@@ -2281,7 +2346,7 @@ HIF_sleep_entry(void *arg)
 	struct hif_pci_softc *sc = hif_state->sc;
 	u_int32_t idle_ms;
 
-	if (vos_is_load_unload_in_progress(VOS_MODULE_ID_HIF, NULL))
+	if (vos_is_unload_in_progress(VOS_MODULE_ID_HIF, NULL))
 		return;
 
 	if (sc->recovery)
@@ -3034,13 +3099,53 @@ void HIFIpaGetCEResource(HIF_DEVICE *hif_device,
 
 
 #ifdef FEATURE_RUNTIME_PM
+/**
+ * hif_pci_runtime_pm_warn() - Runtime PM Debugging API
+ * @sc: hif_pci_softc context
+ * @msg: log message
+ *
+ * Return: void
+ */
+void hif_pci_runtime_pm_warn(struct hif_pci_softc *sc, const char *msg)
+{
+	pr_warn("%s: usage_count: %d, pm_state: %d, prevent_suspend_cnt: %d\n",
+			msg, atomic_read(&sc->dev->power.usage_count),
+			atomic_read(&sc->pm_state),
+			atomic_read(&sc->prevent_suspend_cnt));
+
+	pr_warn("runtime_get: %u, runtime_put: %u, request_resume: %u\n",
+			sc->pm_stats.runtime_get, sc->pm_stats.runtime_put,
+			sc->pm_stats.request_resume);
+
+	pr_warn("allow_suspend: %u, prevent_suspend: %u\n",
+			sc->pm_stats.allow_suspend,
+			sc->pm_stats.prevent_suspend);
+
+	pr_warn("prevent_suspend_timeout: %u, allow_suspend_timeout: %u\n",
+			sc->pm_stats.prevent_suspend_timeout,
+			sc->pm_stats.allow_suspend_timeout);
+
+	pr_warn("Suspended: %u, resumed: %u count\n",
+			sc->pm_stats.suspended,
+			sc->pm_stats.resumed);
+
+	pr_warn("suspend_err: %u, runtime_get_err: %u\n",
+			sc->pm_stats.suspend_err,
+			sc->pm_stats.runtime_get_err);
+
+
+	WARN_ON(1);
+}
+
 int hif_pm_runtime_get(HIF_DEVICE *hif_device)
 {
 	struct HIF_CE_state *hif_state = (struct HIF_CE_state *)hif_device;
 	struct hif_pci_softc *sc = hif_state->sc;
 	int ret = 0;
+	int pm_state = adf_os_atomic_read(&sc->pm_state);
 
-	if (adf_os_atomic_read(&sc->pm_state) == HIF_PM_RUNTIME_STATE_ON) {
+	if (pm_state == HIF_PM_RUNTIME_STATE_ON ||
+		pm_state == HIF_PM_RUNTIME_STATE_NONE) {
 		sc->pm_stats.runtime_get++;
 		ret = __hif_pm_runtime_get(sc->dev);
 
@@ -3050,8 +3155,16 @@ int hif_pm_runtime_get(HIF_DEVICE *hif_device)
 		if (ret > 0)
 			ret = 0;
 
-		if (ret < 0)
+		if (ret)
 			hif_pm_runtime_put(hif_device);
+
+		if (ret && ret != -EINPROGRESS) {
+			VOS_TRACE(VOS_MODULE_ID_HIF, VOS_TRACE_LEVEL_ERROR,
+				"%s: Resuming or suspending in pm_state:%d"
+				" ret: %d\n", __func__,
+				adf_os_atomic_read(&sc->pm_state), ret);
+			sc->pm_stats.runtime_get_err++;
+		}
 
 		return ret;
 	}
@@ -3068,6 +3181,24 @@ int hif_pm_runtime_put(HIF_DEVICE *hif_device)
 	struct HIF_CE_state *hif_state = (struct HIF_CE_state *)hif_device;
 	struct hif_pci_softc *sc = hif_state->sc;
 	int ret = 0;
+	int pm_state, usage_count;
+
+	pm_state = adf_os_atomic_read(&sc->pm_state);
+	usage_count = atomic_read(&sc->dev->power.usage_count);
+
+	/*
+	 * During Driver unload, platform driver increments the usage
+	 * count to prevent any runtime suspend getting called.
+	 * So during driver load in HIF_PM_RUNTIME_STATE_NONE state the
+	 * usage_count should be one. In all other states, whithout
+	 * get calling put is FATAL, so handling that case here.
+	 */
+
+	if ((pm_state == HIF_PM_RUNTIME_STATE_NONE && usage_count == 1) ||
+					usage_count == 0) {
+		hif_pci_runtime_pm_warn(sc, "PUT Without a Get Operation");
+		return -EINVAL;
+	}
 
 	sc->pm_stats.runtime_put++;
 
@@ -3084,6 +3215,14 @@ static inline int __hif_pm_runtime_prevent_suspend(struct hif_pci_softc *hif_sc)
 	if (atomic_inc_return(&hif_sc->prevent_suspend_cnt) == 1) {
 		ret = __hif_pm_runtime_get(hif_sc->dev);
 
+		if (ret < 0 && ret != -EINPROGRESS) {
+			VOS_TRACE(VOS_MODULE_ID_HIF, VOS_TRACE_LEVEL_ERROR,
+				"%s: Resuming or suspending in pm_state:%d"
+				" ret: %d\n", __func__,
+				adf_os_atomic_read(&hif_sc->pm_state), ret);
+			hif_sc->pm_stats.runtime_get_err++;
+		}
+
 		VOS_TRACE(VOS_MODULE_ID_HIF, VOS_TRACE_LEVEL_INFO,
 				"%s: in pm_state:%d ret: %d\n", __func__,
 				adf_os_atomic_read(&hif_sc->pm_state), ret);
@@ -3095,9 +3234,26 @@ static inline int __hif_pm_runtime_prevent_suspend(struct hif_pci_softc *hif_sc)
 static inline int __hif_pm_runtime_allow_suspend(struct hif_pci_softc *hif_sc)
 {
 	int ret = 0;
+	int usage_count;
 
 	if (atomic_read(&hif_sc->prevent_suspend_cnt) == 0)
 		return ret;
+
+	/*
+	 * During Driver Unload, Platform driver increments the usage
+	 * count to prevent any runtime suspend getting called.
+	 * So during driver load in HIF_PM_RUNTIME_STATE_NONE state
+	 * the usage count should be one.
+	 */
+
+	usage_count = atomic_read(&hif_sc->dev->power.usage_count);
+	if ((adf_os_atomic_read(&hif_sc->pm_state) == HIF_PM_RUNTIME_STATE_NONE
+			&& usage_count == 1) || usage_count == 0) {
+		hif_pci_runtime_pm_warn(hif_sc,
+				"Allow without a prevent suspend");
+		return -EINVAL;
+	}
+
 
 	if (atomic_dec_return(&hif_sc->prevent_suspend_cnt) == 0) {
 		if (hif_sc->runtime_timer_expires > 0) {
@@ -3212,7 +3368,14 @@ int hif_pm_runtime_prevent_suspend_timeout(void *ol_sc, unsigned int delay)
 
 	if (vos_is_load_unload_in_progress(VOS_MODULE_ID_HIF, NULL)) {
 		VOS_TRACE(VOS_MODULE_ID_HIF, VOS_TRACE_LEVEL_ERROR,
-			  "%s: Load/unload in progress, ignore!\n", __func__);
+				"%s: Load/unload in progress, ignore!",
+				__func__);
+		return -EINVAL;
+	}
+
+	if (vos_is_logp_in_progress(VOS_MODULE_ID_HIF, NULL)) {
+		VOS_TRACE(VOS_MODULE_ID_HIF, VOS_TRACE_LEVEL_ERROR,
+				"%s: LOGP in progress, ignore!", __func__);
 		return -EINVAL;
 	}
 

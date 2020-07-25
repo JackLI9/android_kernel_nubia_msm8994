@@ -14,6 +14,7 @@ if INPUT_TOUCHSCREEN
 source "drivers/input/touchscreen/atmel/Kconfig"
 source "drivers/input/touchscreen/gt1x/Kconfig"
 source "drivers/input/touchscreen/cyttsp5/Kconfig"
+source "drivers/input/touchscreen/synaptics_dsx_pm9x/Kconfig"
 
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"
@@ -92,6 +93,18 @@ config TOUCHSCREEN_AD7879_SPI
 
 config TOUCHSCREEN_ATMEL_MXT
 	tristate "Atmel mXT I2C Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have Atmel mXT series I2C touchscreen,
+	  such as AT42QT602240/ATMXT224, connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called atmel_mxt_ts.
+
+config TOUCHSCREEN_ATMEL_MXT_PM9X
+	tristate "Atmel mXT I2C Touchscreen (PM9X variant)"
 	depends on I2C
 	help
 	  Say Y here if you have Atmel mXT series I2C touchscreen,

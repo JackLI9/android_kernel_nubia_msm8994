@@ -93,16 +93,9 @@ static struct cnss_fw_files FW_FILES_QCA6174_FW_1_3 = {
 static struct cnss_fw_files FW_FILES_QCA6174_FW_3_0 = {
 "qwlan30.bin", "bdwlan30.bin", "otp30.bin", "utf30.bin",
 "utfbd30.bin", "epping30.bin", "evicted30.bin"};
-static struct cnss_fw_files FW_FILES_QCA6174_FW_3_EPCOS = {
-"qwlan30.bin", "bdwlan3e.bin", "otp30.bin", "utf30.bin",
-"utfbd30.bin", "epping30.bin", "evicted30.bin"};
 static struct cnss_fw_files FW_FILES_DEFAULT = {
 "qwlan.bin", "bdwlan.bin", "otp.bin", "utf.bin",
 "utfbd.bin", "epping.bin", "evicted.bin"};
-
-extern const char* ztemt_get_hw_wifi(void);
-#define SAMSUNG_WIFI_FRONT_END_VERSION "wifi_samsung"
-#define EPCOS_WIFI_FRONT_END_VERSION "wifi_epcos"
 
 #define QCA6180_VENDOR_ID	(0x168C)
 #define QCA6180_DEVICE_ID      (0x0041)
@@ -773,9 +766,6 @@ static u8 cnss_get_pci_dev_bus_number(struct pci_dev *pdev)
 
 void cnss_setup_fw_files(u16 revision)
 {
-	const char *wifi_front_end;
-	wifi_front_end = ztemt_get_hw_wifi();
-
 	switch (revision) {
 
 	case QCA6174_FW_1_1:
@@ -821,17 +811,8 @@ void cnss_setup_fw_files(u16 revision)
 	case QCA6174_FW_3_2:
 		strlcpy(penv->fw_files.image_file, "qwlan30.bin",
 			CNSS_MAX_FILE_NAME);
-
-		if(strncmp(SAMSUNG_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
-			strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
-				CNSS_MAX_FILE_NAME);
-		else if(strncmp(EPCOS_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
-			strlcpy(penv->fw_files.board_data, "bdwlan3e.bin",
-				CNSS_MAX_FILE_NAME);
-		else
-			strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
-				CNSS_MAX_FILE_NAME);
-
+		strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
+			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.otp_data, "otp30.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.utf_file, "utf30.bin",
@@ -869,12 +850,8 @@ EXPORT_SYMBOL(cnss_get_fw_files);
 int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version)
 {
-	const char *wifi_front_end;
-
 	if (!pfw_files)
 		return -ENODEV;
-
-	wifi_front_end = ztemt_get_hw_wifi();
 
 	switch (target_version) {
 	case AR6320_REV1_VERSION:
@@ -889,21 +866,7 @@ int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 		break;
 	case AR6320_REV3_VERSION:
 	case AR6320_REV3_2_VERSION:
-		if(strncmp(SAMSUNG_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
-		{
-			memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_0, sizeof(*pfw_files));
-			pr_info("%s: Download samsung RF bin file successful\n", __func__);
-		}
-		else if(strncmp(EPCOS_WIFI_FRONT_END_VERSION, wifi_front_end, strlen(wifi_front_end)) == 0)
-		{
-			memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_EPCOS, sizeof(*pfw_files));
-			pr_info("%s: Download epcos RF bin file successful\n", __func__);
-		}
-		else
-		{
-		    memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_0, sizeof(*pfw_files));
-			pr_err("%s: Download unkown RF bin file successful, %s \n", __func__, wifi_front_end);
-		}
+		memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_0, sizeof(*pfw_files));
 		break;
 	default:
 		memcpy(pfw_files, &FW_FILES_DEFAULT, sizeof(*pfw_files));
@@ -2921,6 +2884,10 @@ int cnss_auto_suspend(void)
 	if (penv->pcie_link_state) {
 		pci_save_state(pdev);
 		penv->saved_state = pci_store_saved_state(pdev);
+		pci_disable_device(pdev);
+		ret = pci_set_power_state(pdev, PCI_D3hot);
+		if (ret)
+			pr_err("%s: Set D3Hot failed: %d\n", __func__, ret);
 		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 			cnss_get_pci_dev_bus_number(pdev),
 			pdev, NULL, PM_OPTIONS)) {
@@ -2956,6 +2923,9 @@ int cnss_auto_resume(void)
 			ret = -EAGAIN;
 			goto out;
 		}
+		ret = pci_enable_device(pdev);
+		if (ret)
+			pr_err("%s: enable device failed: %d\n", __func__, ret);
 		penv->pcie_link_state = PCIE_LINK_UP;
 	}
 
@@ -2964,6 +2934,7 @@ int cnss_auto_resume(void)
 			&penv->saved_state);
 
 	pci_restore_state(pdev);
+	pci_set_master(pdev);
 
 	atomic_set(&penv->auto_suspended, 0);
 out:
@@ -3014,6 +2985,7 @@ void cnss_runtime_init(struct device *dev, int auto_delay)
 	pm_runtime_allow(dev);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_noidle(dev);
+	pm_suspend_ignore_children(dev, true);
 }
 EXPORT_SYMBOL(cnss_runtime_init);
 

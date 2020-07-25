@@ -20,7 +20,7 @@
 #include <linux/slab.h>
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
-
+#include <linux/time.h>
 #include <linux/msm_iommu_domains.h>
 
 #include "mdss.h"
@@ -549,7 +549,6 @@ static void mdss_dsi_start_hs_clk_lane(struct mdss_dsi_ctrl_pdata *ctrl)
 	pr_debug("%s: ndx=%d, set_hs, cnt=%d\n", __func__,
 				ctrl->ndx, ctrl->clk_lane_cnt);
 	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
-    
 	MDSS_XLOG(ctrl->ndx, ctrl->clk_lane_cnt,
 			current->pid, XLOG_FUNC_EXIT);
 	mutex_unlock(&ctrl->clk_lane_mutex);
@@ -605,9 +604,6 @@ end:
 release:
 	pr_debug("%s: ndx=%d, cnt=%d\n", __func__,
 			ctrl->ndx, ctrl->clk_lane_cnt);
-    
-    MDSS_XLOG(ctrl->ndx, ctrl->clk_lane_cnt, current->pid,
-                                    XLOG_FUNC_EXIT);
 
 	MDSS_XLOG(ctrl->ndx, ctrl->clk_lane_cnt,
 			current->pid, XLOG_FUNC_EXIT);
@@ -1349,6 +1345,7 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsi_cmd_desc *cm;
 	struct dsi_ctrl_hdr *dchdr;
 	int len, wait, tot = 0;
+	struct timespec now_ts;
 
 	tp = &ctrl->tx_buf;
 	mdss_dsi_buf_init(tp);
@@ -1369,6 +1366,13 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 			wait = mdss_dsi_wait4video_eng_busy(ctrl);
 
+			get_monotonic_boottime(&now_ts);
+			if (timespec_compare(&ctrl->wait_until_ts, &now_ts) > 0) {
+				const struct timespec diff_ts =
+					timespec_sub(ctrl->wait_until_ts, now_ts);
+				usleep(timespec_to_ns(&diff_ts) / NSEC_PER_USEC);
+			}
+
 			mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 			if (use_dma_tpg)
 				len = mdss_dsi_cmd_dma_tpg_tx(ctrl, tp);
@@ -1383,8 +1387,11 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			pr_debug("%s: cmd_dma_tx for cmd = 0x%x, len = %d\n",
 					__func__,  cm->payload[0], len);
 
-			if (!wait || dchdr->wait > VSYNC_PERIOD)
-				usleep(dchdr->wait * 1000);
+			if (!wait || dchdr->wait > VSYNC_PERIOD) {
+				get_monotonic_boottime(&ctrl->wait_until_ts);
+				timespec_add_ns(&ctrl->wait_until_ts,
+						dchdr->wait * NSEC_PER_MSEC);
+			}
 
 			mdss_dsi_buf_init(tp);
 			len = 0;
@@ -2192,13 +2199,16 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	if (req && (req->flags & CMD_REQ_HS_MODE))
 		hs_req = true;
 
+	if (req == NULL)
+		goto need_lock;
+
 	/* make sure dsi_cmd_mdp is idle */
 	mdss_dsi_cmd_mdp_busy(ctrl);
 
 	mdss_dsi_get_hw_revision(ctrl);
 
 	/* For DSI versions less than 1.3.0, CMD DMA TPG is not supported */
-	if (req && (ctrl->hw_rev < MDSS_DSI_HW_REV_103))
+	if (ctrl->hw_rev < MDSS_DSI_HW_REV_103)
 		req->flags &= ~CMD_REQ_DMA_TPG;
 
 	pr_debug("%s: ctrl=%d from_mdp=%d pid=%d\n", __func__,
@@ -2218,12 +2228,10 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		}
 	} else {	/* from dcs send */
 		if (ctrl->cmd_clk_ln_recovery_en &&
-				ctrl->panel_mode == DSI_CMD_MODE && hs_req)
+				ctrl->panel_mode == DSI_CMD_MODE &&
+				(req->flags & CMD_REQ_HS_MODE))
 			mdss_dsi_cmd_start_hs_clk_lane(ctrl);
 	}
-
-	if (!req)
-		goto need_lock;
 
 	MDSS_XLOG(ctrl->ndx, req->flags, req->cmds_cnt, from_mdp, current->pid);
 

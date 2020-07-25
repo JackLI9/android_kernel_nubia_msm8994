@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1308,7 +1308,7 @@ static bool is_valid_freq(struct silabs_fm_device *radio, u32 freq)
 {
 	u32 band_low_limit = radio->recv_conf.band_low_limit * TUNE_STEP_SIZE;
 	u32 band_high_limit = radio->recv_conf.band_high_limit * TUNE_STEP_SIZE;
-	u8 spacing;
+	u8 spacing = 0;
 
 	if (radio->recv_conf.ch_spacing == 0)
 		spacing = CH_SPACING_200;
@@ -1885,6 +1885,18 @@ static int initialize_recv(struct silabs_fm_device *radio)
 		goto set_prop_fail;
 	}
 
+	set_property(radio, FM_BLEND_RSSI_STEREO_THRESHOLD_PROP, 0x0031);
+	set_property(radio, FM_BLEND_RSSI_MONO_THRESHOLD_PROP, 0x001E);
+
+	retval = set_property(radio,
+		FM_RDS_INT_SOURCE_PROP,
+		RDS_INT_BIT);
+	if (retval < 0) {
+		FMDERR("In %s, FM_RDS_INT_SOURCE_PROP failed %d\n",
+			__func__, retval);
+		goto set_prop_fail;
+	}
+
 	retval = set_property(radio,
 				FM_RDS_INT_FIFO_COUNT_PROP,
 				FIFO_CNT_16);
@@ -2253,6 +2265,7 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 				__func__);
 			silabs_fm_q_event(radio, SILABS_EVT_TUNE_SUCC);
 			radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
+			radio->is_af_tune_in_progress = false;
 		} else if (radio->seek_tune_status == SEEK_PENDING) {
 			FMDBG("%s: posting SILABS_EVT_SEEK_COMPLETE event\n",
 				__func__);
@@ -2948,6 +2961,14 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		return retval;
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSON:
+		retval = set_property(radio,
+				FM_RDS_CONFIG_PROP,
+				UNCORRECTABLE_RDS_EN);
+		if (retval < 0) {
+			FMDERR("In %s, FM_RDS_CONFIG_PROP failed %d\n",
+				__func__, retval);
+			goto end;
+		}
 		return retval;
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSGROUP_MASK:

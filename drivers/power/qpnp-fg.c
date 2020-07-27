@@ -1307,12 +1307,6 @@ static int get_prop_capacity(struct fg_chip *chip)
 		if (fg_debug_mask & FG_POWER_SUPPLY)
 			pr_info_ratelimited("capacity: %d, EMPTY\n",
 					EMPTY_CAPACITY);
-#ifdef CONFIG_ZTEMT_MSM8994_FUEL_GAUGE
-	if(debug_mask_fg & debug_mask_capacity){
-		pr_info("charger:jing capacity: %d, raw[0]: 0x%02x  raw[1]: 0x%02x\n",
-				capacity, cap[0], cap[1]);
-	}
-#endif
 		return EMPTY_CAPACITY;
 	}
 	msoc = get_monotonic_soc_raw(chip);
@@ -5116,7 +5110,7 @@ static int fg_common_hw_init(struct fg_chip *chip)
 	resume_soc_raw = settings[FG_MEM_RESUME_SOC].value;
 	if (resume_soc_raw > 0) {
 #ifdef CONFIG_ZTEMT_MSM8994_FUEL_GAUGE
-		resume_soc = resume_soc * 255 / 100 + 1;//set the resume soc from 0xfc to 0xfd 
+		resume_soc_raw = resume_soc_raw * 255 / 100 + 1;//set the resume soc from 0xfc to 0xfd 
 #else
 #endif
 		rc = fg_set_resume_soc(chip, resume_soc_raw);

@@ -349,8 +349,8 @@ enum wake_reason {
 #include <../../arch/arm/mach-msm/clock.h>
 #define POWER_MONITOR_PERIOD_MS	10000
 #define DRV_NAME "zte_power_debug"
-static int power_debug_switch=1;
-static struct smbchg_chip *chip_temp;
+//static int power_debug_switch=1;
+//static struct smbchg_chip *chip_temp;
 extern int msm_show_resume_irq_mask; //used to print the resume irq
 extern void global_print_active_locks( void );
 #endif
@@ -813,6 +813,10 @@ static enum power_supply_type usb_type_enum[] = {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 2 */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* bit 3 */
 	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 4 error case, report DCP */
+#ifdef CONFIG_ZTEMT_MSM8994_CHARGER
+  	POWER_SUPPLY_PROP_USB_PRESENT,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+#endif
 };
 
 /* helper to return enum power_supply_type of USB type */
@@ -836,10 +840,6 @@ static void read_usb_type(struct smbchg_chip *chip, char **usb_type_name,
 	type = get_type(reg);
 	*usb_type_name = get_usb_type_name(type);
 	*usb_supply_type = get_usb_supply_type(type);
-#ifdef CONFIG_ZTEMT_MSM8994_CHARGER
-  POWER_SUPPLY_PROP_USB_PRESENT,
- 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-#endif
 }
 
 #define CHGR_STS			0x0E
@@ -1605,13 +1605,9 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 	}
 
 	read_usb_type(chip, &usb_type_name, &usb_supply_type);
-
-#ifdef CONFIG_ZTEMT_MSM8994_CHARGER
-	  DBG_CHARGE("low_icl_wa on, ignoring the usb current setting\n");
-#else	
+	
 	switch (usb_supply_type) {
 	case POWER_SUPPLY_TYPE_USB:
-#endif
 		if (current_ma < CURRENT_150_MA) {
 			/* force 100mA */
 			rc = smbchg_sec_masked_write(chip,
@@ -1961,9 +1957,8 @@ static void taper_irq_en(struct smbchg_chip *chip, bool en)
 	mutex_unlock(&chip->taper_irq_lock);
 }
 
-#ifdef CONFIG_MACH_PM9X
 #define PARALLEL_MONITOR_TIMER_MS	10000
-#endif
+
 static void smbchg_parallel_usb_disable(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
@@ -2988,14 +2983,6 @@ static int smbchg_force_tlim_en(struct smbchg_chip *chip, bool enable)
 
 	rc = smbchg_sec_masked_write(chip, chip->otg_base + LOW_PWR_OPTIONS_REG,
 			FORCE_TLIM_BIT, enable ? FORCE_TLIM_BIT : 0);
-#ifdef CONFIG_ZTEMT_MSM8994_CHARGER
-	case POWER_SUPPLY_PROP_USB_PRESENT:
-		val->intval = is_usb_present(chip);
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = 	 FULL_FCC_MAH  ;
-		break;
-#endif
 	if (rc < 0) {
 		dev_err(chip->dev,
 			"Couldn't %s otg force tlim rc = %d\n",
@@ -4603,6 +4590,14 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 #ifdef CONFIG_BATTERY_JEITA_COMPLIANCE
 	case POWER_SUPPLY_PROP_HOT_RECHARGING:
 		val->intval = chip->hot_recharging_en;
+		break;
+#endif
+#ifdef CONFIG_ZTEMT_MSM8994_CHARGER
+	case POWER_SUPPLY_PROP_USB_PRESENT:
+		val->intval = is_usb_present(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		val->intval = 	 FULL_FCC_MAH  ;
 		break;
 #endif
 	default:

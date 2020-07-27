@@ -163,15 +163,6 @@ struct pon_regulator {
 	bool			enabled;
 };
 
-struct pon_regulator {
-	struct qpnp_pon		*pon;
-	struct regulator_dev	*rdev;
-	struct regulator_desc	rdesc;
-	u32			addr;
-	u32			bit;
-	bool			enabled;
-};
-
 struct qpnp_pon {
 	struct spmi_device	*spmi;
 	struct input_dev	*pon_input;

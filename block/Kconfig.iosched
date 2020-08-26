@@ -61,6 +61,7 @@ config CFQ_GROUP_IOSCHED
 	---help---
 	  Enable group IO scheduling in CFQ.
 
+
 config IOSCHED_BFQ
 	tristate "BFQ I/O scheduler"
 	default n
@@ -114,6 +115,7 @@ choice
 		  as desired, independently of the disk parameters and with
 		  any workload. It also tries to guarantee low latency to
 		  interactive and soft real-time applications.
+
 
 	config DEFAULT_NOOP
 		bool "No-op"

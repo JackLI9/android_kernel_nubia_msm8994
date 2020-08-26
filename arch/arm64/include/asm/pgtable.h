@@ -143,8 +143,6 @@ extern struct page *empty_zero_page;
 #define pte_write(pte)		(!!(pte_val(pte) & PTE_WRITE))
 #define pte_exec(pte)		(!(pte_val(pte) & PTE_UXN))
 
-#define pte_valid_ng(pte) \
-	((pte_val(pte) & (PTE_VALID | PTE_NG)) == (PTE_VALID | PTE_NG))
 #define pte_valid_user(pte) \
 	((pte_val(pte) & (PTE_VALID | PTE_USER)) == (PTE_VALID | PTE_USER))
 #define pte_valid_not_user(pte) \

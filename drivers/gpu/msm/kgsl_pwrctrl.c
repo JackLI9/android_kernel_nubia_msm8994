@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,7 +47,7 @@
 #define MAX_UDELAY		2000
 
 /* Number of jiffies for a full thermal cycle */
-#define TH_HZ			20
+#define TH_HZ			(HZ/5)
 
 #define KGSL_MAX_BUSLEVELS	20
 
@@ -411,8 +411,10 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	/* Change register settings if any  BEFORE pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 0, 0);
 	clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
-	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel,
-			pwrlevel->gpu_freq);
+	trace_kgsl_pwrlevel(device,
+			pwr->active_pwrlevel, pwrlevel->gpu_freq,
+			pwr->previous_pwrlevel,
+			pwr->pwrlevels[old_level].gpu_freq);
 	/* Change register settings if any AFTER pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 1, 0);
 
@@ -1204,7 +1206,8 @@ void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	if (state == KGSL_PWRFLAGS_OFF) {
 		if (test_and_clear_bit(KGSL_PWRFLAGS_CLK_ON,
 			&pwr->power_flags)) {
-			trace_kgsl_clk(device, state);
+			trace_kgsl_clk(device, state,
+					kgsl_pwrctrl_active_freq(pwr));
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 				if (pwr->grp_clks[i])
 					clk_disable(pwr->grp_clks[i]);
@@ -1231,7 +1234,8 @@ void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_CLK_ON,
 			&pwr->power_flags)) {
-			trace_kgsl_clk(device, state);
+			trace_kgsl_clk(device, state,
+					kgsl_pwrctrl_active_freq(pwr));
 			/* High latency clock maintenance. */
 			if (device->state != KGSL_STATE_NAP) {
 				if (pwr->pwrlevels[0].gpu_freq > 0)
@@ -1494,7 +1498,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->power_flags = 0;
 
-	pwr->interval_timeout = pdata->idle_timeout;
+	pwr->interval_timeout = msecs_to_jiffies(pdata->idle_timeout);
 	pwr->strtstp_sleepwake = pdata->strtstp_sleepwake;
 
 	if (kgsl_property_read_u32(device, "qcom,pm-qos-active-latency",
@@ -1520,7 +1524,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 		if (!pwr->ocmem_pcl) {
 			KGSL_PWR_ERR(device,
-				"msm_bus_scale_register_client failed: id %d table %p",
+				"msm_bus_scale_register_client failed: id %d table %pK",
 				device->id, ocmem_scale_table);
 			result = -EINVAL;
 			goto done;
@@ -1552,7 +1556,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 				(pdata->bus_scale_table);
 		if (!pwr->pcl) {
 			KGSL_PWR_ERR(device,
-				"msm_bus_scale_register_client failed: id %d table %p",
+				"msm_bus_scale_register_client failed: id %d table %pK",
 				device->id, pdata->bus_scale_table);
 			result = -EINVAL;
 			goto done;
@@ -2283,7 +2287,7 @@ static int _check_active_count(struct kgsl_device *device, int count)
 int kgsl_active_count_wait(struct kgsl_device *device, int count)
 {
 	int result = 0;
-	long wait_jiffies = HZ;
+	long wait_jiffies = msecs_to_jiffies(1000);
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
 

@@ -373,6 +373,9 @@ config SND_SOC_WCD9306
 config SND_SOC_WCD9330
         tristate
 
+config ZTE_NXP_SMART_PA
+    bool "zte add NXP smart pa chip tfa9888"
+
 #start by zmwu        
 config SND_SOC_AK4375
         tristate "SND_SOC_AK4375"

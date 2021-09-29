@@ -24,8 +24,9 @@
 #include <linux/string.h>
 
 #include "mdss_dsi.h"
+#ifdef CONFIG_MDSS_LIVEDISPLAY
 #include "mdss_livedisplay.h"
-
+#endif
 #include "zte_disp_enhance.h"
 #define DT_CMD_HDR 6
 #define MIN_REFRESH_RATE 30
@@ -2035,9 +2036,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_panel_horizintal_line_idle(np, ctrl_pdata);
 
 	mdss_dsi_parse_dfps_config(np, ctrl_pdata);
-
+#ifdef CONFIG_MDSS_LIVEDISPLAY
 	mdss_livedisplay_parse_dt(np, pinfo);
-
+#endif
 	return 0;
 
 error:

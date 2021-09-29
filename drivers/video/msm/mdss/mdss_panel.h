@@ -411,9 +411,9 @@ struct mdss_mdp_pp_tear_check {
 	u32 rd_ptr_irq;
 	u32 refx100;
 };
-
+#ifdef CONFIG_MDSS_LIVEDISPLAY
 struct mdss_livedisplay_ctx;
-
+#endif
 struct mdss_panel_info {
 	u32 xres;
 	u32 yres;
@@ -495,9 +495,9 @@ struct mdss_panel_info {
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
 	struct edp_panel_info edp;
-
+#ifdef CONFIG_MDSS_LIVEDISPLAY
 	struct mdss_livedisplay_ctx *livedisplay;
-
+#endif
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
 };

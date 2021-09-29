@@ -56,8 +56,9 @@
 #include "mdss_debug.h"
 #include "mdss_mdp.h"
 
-
+#ifdef CONFIG_MDSS_LIVEDISPLAY
 #include "mdss_livedisplay.h"
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -755,6 +756,7 @@ static ssize_t mdss_fb_get_dfps_mode(struct device *dev,
 	return ret;
 }
 
+#ifndef CONFIG_MDSS_LIVEDISPLAY
 static int pcc_r = 32768, pcc_g = 32768, pcc_b = 32768;
 static ssize_t mdss_get_rgb(struct device *dev,
 			    struct device_attribute *attr, char *buf)
@@ -818,6 +820,7 @@ static ssize_t mdss_set_rgb(struct device *dev,
 
 	return count;
 }
+#endif
 
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
@@ -835,8 +838,9 @@ static DEVICE_ATTR(msm_fb_panel_status, S_IRUGO | S_IWUSR,
 	mdss_fb_get_panel_status, mdss_fb_force_panel_dead);
 static DEVICE_ATTR(msm_fb_dfps_mode, S_IRUGO | S_IWUSR,
 	mdss_fb_get_dfps_mode, mdss_fb_change_dfps_mode);
+#ifndef CONFIG_MDSS_LIVEDISPLAY
 static DEVICE_ATTR(rgb, S_IRUGO | S_IWUSR | S_IWGRP, mdss_get_rgb, mdss_set_rgb);
-
+#endif
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
@@ -848,7 +852,9 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_thermal_level.attr,
 	&dev_attr_msm_fb_panel_status.attr,
 	&dev_attr_msm_fb_dfps_mode.attr,
+#ifndef CONFIG_MDSS_LIVEDISPLAY
 	&dev_attr_rgb.attr,
+#endif
 	NULL,
 };
 
@@ -863,8 +869,11 @@ static int mdss_fb_create_sysfs(struct msm_fb_data_type *mfd)
 	rc = sysfs_create_group(&mfd->fbi->dev->kobj, &mdss_fb_attr_group);
 	if (rc)
 		pr_err("sysfs group creation failed, rc=%d\n", rc);
-
+#ifdef CONFIG_MDSS_LIVEDISPLAY
 	return mdss_livedisplay_create_sysfs(mfd);
+#else
+	return rc;
+#endif
 }
 
 static void mdss_fb_remove_sysfs(struct msm_fb_data_type *mfd)

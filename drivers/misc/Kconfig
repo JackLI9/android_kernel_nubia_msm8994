@@ -23,11 +23,13 @@ config LM5802
 config TPS65132
 	tristate "Texas Instruments TPS65132 Driver"
 	help
-
+	  Texas Instruments TPS65132 Driver.
 
 config FSA8069
-	tristate " FAS8069 Driver"
-
+	tristate "FAS8069 Driver"
+	help
+	  FAS8069 Driver.
+	
 config AD525X_DPOT
 	tristate "Analog Devices Digital Potentiometers"
 	depends on (I2C || SPI) && SYSFS

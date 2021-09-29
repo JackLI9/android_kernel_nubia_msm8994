@@ -594,11 +594,6 @@ config ZTEMT_MSM8994_FUEL_GAUGE
 	help
 	  ZTEMT For MSM8994 Platfrom fuel gauge
 
-	bool "ZTEMT NX508J Charge X Mode"
-	default n
-	help
-	  ZTEMT NX508J Charge X Mode
-	bool "battery JEITA compliance"
 endmenu
 ################ztemt battery config
 
@@ -617,12 +612,12 @@ config ZTEMT_HW_VERSION_DEBUG
 	help
 	  ZTEMT HW VERSION DEBUG
 
-config ZTEMT_HW_VERSION_NX517J
-	bool "ZTEMT HW VERSION NX517J"
+config ZTEMT_HW_VERSION_NX508J
+	bool "ZTEMT HW VERSION NX508J"
 	depends on ZTEMT_HW_VERSION
 	default n
 	help
-	  ZTEMT HW VERSION NX517J
+	  ZTEMT HW VERSION NX508J
 
 config ZTEMT_HW_CONFIG_ITEM
 	bool "ZTEMT HW CONFIG ITEM"

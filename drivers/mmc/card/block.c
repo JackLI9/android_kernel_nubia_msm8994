@@ -2834,7 +2834,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		/* complete ongoing async transfer before issuing discard */
 		if (card->host->areq)
 			mmc_blk_issue_rw_rq(mq, NULL);
-#if CONFIG_ZTEMT_REDUCE_FACTORY_RESET_TIME
+#ifdef CONFIG_ZTEMT_REDUCE_FACTORY_RESET_TIME
 /* ztemt modify for factory reset too long time */
         if(0){
 		  if (cmd_flags & REQ_SECURE &&

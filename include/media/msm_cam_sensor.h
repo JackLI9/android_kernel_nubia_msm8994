@@ -464,26 +464,11 @@ enum msm_ois_cfg_type_t {
 	CFG_OIS_POWERUP,
 	CFG_OIS_CONTROL,
 	CFG_OIS_I2C_WRITE_SEQ_TABLE,
-#ifdef CONFIG_MACH_PM9X
-	CFG_OIS_CALIBRATION,
-	CFG_OIS_ENABLE,
-	CFG_OIS_DISABLE,
-	CFG_OIS_MOVIE_MODE,
-	CFG_OIS_STILL_MODE,
-	CFG_OIS_CENTERING_ON,
-	CFG_OIS_CENTERING_OFF,
-	CFG_OIS_PANTILT_ON,
-#endif
 };
 
 enum msm_ois_i2c_operation {
 	MSM_OIS_WRITE = 0,
 	MSM_OIS_POLL,
-#ifdef CONFIG_MACH_PM9X
-	MSM_OIS_READ_WRITE_AND,
-	MSM_OIS_READ_WRITE_OR,
-	MSM_OIS_DEBUG,
-#endif
 };
 
 struct reg_settings_ois_t {
@@ -507,13 +492,6 @@ struct msm_ois_params_t {
 struct msm_ois_set_info_t {
 	struct msm_ois_params_t ois_params;
 };
-
-#ifdef CONFIG_MACH_PM9X
-struct msm_ois_eeprom_params_t {
-	uint32_t size;
-	uint8_t ois_eeprom_data[MAX_OIS_EEPROM_SIZE];
-};
-#endif
 
 struct msm_actuator_move_params_t {
 	int8_t dir;

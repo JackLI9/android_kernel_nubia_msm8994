@@ -393,4 +393,8 @@ static inline void kgsl_free_sgt(struct sg_table *sgt)
         }
 }
 
+int kgsl_heap_init(void);
+struct page *kgsl_heap_alloc(unsigned long size);
+void kgsl_heap_free(struct page *page);
+
 #endif /* __KGSL_SHAREDMEM_H */

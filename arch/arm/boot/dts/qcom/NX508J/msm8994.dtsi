@@ -265,7 +265,7 @@
 
 	soc: soc { };
 
-	memory {
+	memory: memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 
@@ -354,7 +354,19 @@
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
-
+	
+	ramoops {
+		compatible = "ramoops";
+		status = "ok";
+		android,ramoops-buffer-start = <0x9ff00000>;
+		android,ramoops-buffer-size = <0x100000>;
+		android,ramoops-console-size = <0x60000>;
+		android,ramoops-pmsg-size = <0x30000>;
+		android,ramoops-annotate-size = <0x800>;
+		android,ramoops-dump-oops = <0x1>;
+		linux,contiguous-region = <&pstore_reserve_mem>;
+	};
+	
 	cpuss@fd4a8000 {
 		compatible = "qcom,cpuss-8994";
 		reg = <0xfd4a8000 0x4>;
@@ -587,7 +599,7 @@
 	};
 
 	// add by ztemt start
-	// add uart1 for IR-REMOTE
+	// add uart1 for IR-REMOTE 
 	blsp1_uart1: serial@f991d000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991d000 0x1000>;
@@ -1330,6 +1342,7 @@
 
 	spi_0: spi_epm: spi@f9923000 { /* BLSP1 QUP1 */
 		compatible = "qcom,spi-qup-v2";
+		status = "disabled";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg-names = "spi_physical", "spi_bam_physical";
@@ -1386,17 +1399,21 @@
 
 	spi_12: spi@f9968000 { /* BLSP2 QUP6 */
 		compatible = "qcom,spi-qup-v2";
+		status = "ok";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reg-names = "spi_physical";
-		reg = <0xf9968000 0x1000>;
-		interrupt-names = "spi_irq";
-		interrupts = <0 106 0>;
-		spi-max-frequency = <19200000>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0xf9968000 0x1000>,
+		      <0xf9944000 0x19000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 106 0>, <0 239 0>;
+		spi-max-frequency = <9600000>;
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
 		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <22>;
+		qcom,bam-producer-pipe-index = <23>;
 		qcom,master-id = <84>;
 		qcom,use-pinctrl;
 		pinctrl-names = "spi_default", "spi_sleep";
@@ -1408,14 +1425,10 @@
 		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 		        <&clock_gcc clk_gcc_blsp2_qup6_spi_apps_clk>;
 
-		dmas = <&dma_blsp2 22 64 0x20000020 0x20>,
-			   <&dma_blsp2 23 32 0x20000020 0x20>;
-		dma-names = "tx", "rx";
-
 		spi_ak4961@0 {
 				compatible = "qcom,ak4961-spi";
 				reg = <0>;
-				spi-max-frequency = <19200000>;
+				spi-max-frequency = <9600000>;
 		};
 	};
 
@@ -1545,6 +1558,8 @@
 		/* 187,channel_0_krait_hlos_trans_done_irq */
 		interrupts = <0 190 0>, <0 187 0>;
 		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-max-peripherals = <256>;
+		qcom,pmic-arb-max-periph-interrupts = <224>;
 		qcom,pmic-arb-ee = <0>;
 		#interrupt-cells = <3>;
 		interrupt-controller;
@@ -1572,10 +1587,11 @@
 		interrupt-names = "hs_phy_irq", "pwr_event_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
-    vdda33-supply = <&pm8994_l24>;
+		vdda33-supply = <&pm8994_l24>;
 		vbus_dwc3-supply = <&smbcharger_charger_otg>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
+		qcom,otg-capability;
 		qcom,usb-dbm = <&dbm_1p5>;
 
 		qcom,msm-bus,name = "usb3";
@@ -1601,9 +1617,9 @@
 			compatible = "synopsys,dwc3";
 			reg = <0xf9200000 0xfc000>;
 			interrupt-parent = <&intc>;
-			interrupts = <0 131 0>;
+			interrupts = <0 131 0>, <0 179 0>;
+			interrupt-names = "irq", "otg_irq";
 			tx-fifo-resize;
-			snps,usb3-u1u2-disable;
 			usb-phy = <&hsphy0>, <&ssphy0>;
 		};
 	};
@@ -1614,7 +1630,7 @@
 		reg = <0xf92f8800 0x3ff>,
 			<0xf9b3a000 0x110>;
 		reg-names = "core", "phy_csr";
-		qcom,hsphy-init = <0x00D1D1E7>;
+		qcom,hsphy-init = <0x00D1C9E7>;
 		vdd-supply = <&pm8994_s2_corner>;
 		vddcx-supply = <&pm8994_s1_corner>;
 		vdda18-supply = <&pm8994_l6>;
@@ -1811,11 +1827,11 @@
 		compatible = "qcom,android-usb";
 		reg = <0xfe87f0c8 0xc8>;
 		qcom,android-usb-cdrom;
-        vdd-supply = <&pm8994_l29>;
-        qcom,vdd-io-always-on;
-        qcom,vdd-io-lpm-sup;
-	    qcom,vdd-voltage-level = <3250000 3350000>;
-	    qcom,vdd-current-level = <200 800000>;	
+        	vdd-supply = <&pm8994_l29>;
+       		qcom,vdd-io-always-on;
+        	qcom,vdd-io-lpm-sup;
+	    	qcom,vdd-voltage-level = <3250000 3350000>;
+	    	qcom,vdd-current-level = <200 800000>;	
 		qcom,pm-qos-latency = <61 637 1261>;
 	};
 
@@ -2308,7 +2324,7 @@
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {
 				qcom,msm-bus,name = "venc-core1-ddr";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
@@ -2318,6 +2334,7 @@
 					<63 512 458300 0>,
 					<63 512 458300 0>,
 					<63 512 889200 0>,
+					<63 512 889200 0>,
 					<63 512 2108700 0>,
 					<63 512 2243700 0>,
 					<63 512 2615000 0>;
@@ -2326,7 +2343,7 @@
 
 			qcom,msm-bus-client@1 {
 				qcom,msm-bus,name = "vdec-core0-ddr";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
@@ -2336,6 +2353,7 @@
 					<63 512 749100 0>,
 					<63 512 749100 0>,
 					<63 512 1460700 0>,
+					<63 512 1460700 0>,
 					<63 512 2390500 0>,
 					<63 512 2542300 0>,
 					<63 512 2959800 0>;
@@ -2344,7 +2362,7 @@
 
 			qcom,msm-bus-client@2 {
 				qcom,msm-bus,name = "vdec-core1-ddr";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
@@ -2354,6 +2372,7 @@
 					<63 512 571400 0>,
 					<63 512 571400 0>,
 					<63 512 1088500 0>,
+					<63 512 1088500 0>,
 					<63 512 1811000 0>,
 					<63 512 1962000 0>,
 					<63 512 2242900 0>;
@@ -2362,7 +2381,7 @@
 
 			qcom,msm-bus-client@3 {
 				qcom,msm-bus,name = "venc-core2-ddr";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
@@ -2372,6 +2391,7 @@
 					<63 512 759000 0>,
 					<63 512 759000 0>,
 					<63 512 1050000 0>,
+					<63 512 1050000 0>,
 					<63 512 3077000 0>,
 					<63 512 3811000 0>,
 					<63 512 3812000 0>;
@@ -2379,7 +2399,7 @@
 			};
 			qcom,msm-bus-client@4 {
 				qcom,msm-bus,name = "venc-core1-ocmem";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
@@ -2389,6 +2409,7 @@
 					<68 604 470000 2384000>,
 					<68 604 470000 2384000>,
 					<68 604 940000 3632000>,
+					<68 604 940000 3632000>,
 					<68 604 1787000 3632000>,
 					<68 604 1906000 3632000>,
 					<68 604 2234000 3632000>;
@@ -2396,7 +2417,7 @@
 			};
 			qcom,msm-bus-client@5 {
 				qcom,msm-bus,name = "venc-core2-ocmem";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
@@ -2406,6 +2427,7 @@
 					<68 604 564000 2384000>,
 					<68 604 564000 2384000>,
 					<68 604 1003000 3632000>,
+					<68 604 1003000 3632000>,
 					<68 604 2040000 3632000>,
 					<68 604 2349000 3632000>,
 					<68 604 2551000 3632000>;
@@ -2414,7 +2436,7 @@
 
 			qcom,msm-bus-client@6 {
 				qcom,msm-bus,name = "vdec-core0-ocmem";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
@@ -2424,6 +2446,7 @@
 					<68 604 367000 2384000>,
 					<68 604 367000 2384000>,
 					<68 604 735000 3632000>,
+					<68 604 735000 3632000>,
 					<68 604 1175000 3632000>,
 					<68 604 1254000 3632000>,
 					<68 604 1469000 3632000>;
@@ -2432,7 +2455,7 @@
 
 			qcom,msm-bus-client@7 {
 				qcom,msm-bus,name = "vdec-core1-ocmem";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
@@ -2442,6 +2465,7 @@
 					<68 604 432000 2384000>,
 					<68 604 432000 2384000>,
 					<68 604 865000 3632000>,
+					<68 604 865000 3632000>,
 					<68 604 1374000 3632000>,
 					<68 604 1465000 3632000>,
 					<68 604 1717000 3632000>;
@@ -2450,7 +2474,7 @@
 
 			qcom,msm-bus-client@8 {
 				qcom,msm-bus,name = "venc-ddr-lp";
-				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-cases = <11>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
@@ -2459,6 +2483,7 @@
 					<63 512 201100 0>,
 					<63 512 458300 0>,
 					<63 512 458300 0>,
+					<63 512 889200 0>,
 					<63 512 889200 0>,
 					<63 512 1218000 0>,
 					<63 512 1218000 0>,
@@ -2501,7 +2526,7 @@
 		qcom,noise-rjct-sda = <0>;
 		qcom,master-id = <86>;
 		dmas = <&dma_blsp1 12 64 0x20000020 0x20>,
-               <&dma_blsp1 13 32 0x20000020 0x20>;
+			<&dma_blsp1 13 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
 		status = "ok";
 	};
@@ -2949,6 +2974,7 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -2977,6 +3003,7 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -3005,6 +3032,7 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -3033,6 +3061,7 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -3056,6 +3085,7 @@
 			 <&clock_rpm clk_gcc_ce2_ahb_m_clk>,
 			 <&clock_rpm clk_gcc_ce2_axi_m_clk>;
 		qcom,support-core-clk-only;
+		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 

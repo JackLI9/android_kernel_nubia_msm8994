@@ -43,7 +43,7 @@
 				bias-pull-down;
 			};
 		};
-
+		
 		// add by ztemt start
 		// add the uart pinctrl for IR-remote control
 		blsp1_uart1_active {
@@ -69,7 +69,7 @@
 			};
 		};
 		// add by ztemt end
-
+		
 		blsp2_uart2_active {
 			qcom,pins = <&gp 45>, <&gp 46>, <&gp 47>, <&gp 48>;
 			qcom,num-grp-pins = <4>;
@@ -142,7 +142,7 @@
 			};
 			mdss_hdmi_ddc_suspend: ddc_suspend {
 				drive-strength = <2>;
-				bias-pull-down;
+				bias-disable;
 			};
 		};
 
@@ -346,8 +346,6 @@
 			qcom,num-grp-pins = <2>;
 			qcom,pin-func = <3>;
 			label = "pmx_i2c_1";
-
-			status = "disabled";
 
 			i2c_1_active: i2c_1_active {
 				drive-strength = <2>;
@@ -1184,18 +1182,6 @@
 			trigout_c: trigout_c {
 				drive-strength = <2>;
 				bias-disable;
-			};
-		};
-
-		wcd9xxx_intr {
-			qcom,pins = <&gp 72>;
-			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <0>;
-			label = "wcd-intr-default";
-			wcd_intr_default: default {
-				drive-strength = <2>; /* 2 MA */
-				bias-pull-down; /* pull down */
-				input-enable;
 			};
 		};
 

@@ -407,11 +407,11 @@
      *****MHL END****/
      
         tfa9890@34 {
-                   status = "ok";
-            compatible = "nxp,tfa9890";
-            reg =<0x34>;
-            tfa9890-reset-gpio = <&msm_gpio 62 0x00>;
-            tfa9890-intr-gpio = <&msm_gpio 59 0x00>;
+			status = "ok";
+			compatible = "nxp,tfa9890";
+			reg =<0x34>;
+			reset-gpio = <&msm_gpio 62 0x00>;
+			irq-gpio = <&msm_gpio 59 0x00>;
         };
     };
 	i2c@f9924000 {

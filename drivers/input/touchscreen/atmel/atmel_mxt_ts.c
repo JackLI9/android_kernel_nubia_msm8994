@@ -20,9 +20,6 @@
 		mobile: 13244776877
 -----------------------------------------------------------------*/
 #define DRIVER_VERSION 0xB485
-#define ZTEMT_C_AREA_WIDTH	33
-#define ZTEMT_B_AREA_WIDTH	33
-
 
 /*----------------------------------------------------------------
 0.42
@@ -335,9 +332,7 @@ struct mxt_object {
 struct mxt_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
     struct input_dev *input_rim_dev;//ZTEMT add for panel without rim
-#endif
 	char phys[64];		/* device physical location */
 	struct mxt_platform_data *pdata;
 	struct mxt_object *object_table;
@@ -509,16 +504,13 @@ struct mxt_data {
 #endif
 
     struct wake_lock wake_lock;//add by ztemt 20150403
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-    char c_zone_flag;
-#endif
+
 };
 
 /*** ZTEMT Add, 2015/01/09 ***/
 enum {
 	ZONE_DEFAULT = 0,
     ZONE_A,
-    ZONE_B,
     ZONE_C,
 };
 
@@ -602,12 +594,6 @@ static ssize_t mxt_touch_mode_show(struct device *dev,
 	struct device_attribute *attr, char *buf);
 static ssize_t mxt_touch_mode_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-static ssize_t mxt_c_zone_show(struct device *dev,
-	struct device_attribute *attr, char *buf);
-static ssize_t mxt_c_zone_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count);
-#endif
 static ssize_t mxt_plugin_gesture_list_show(struct device *dev,
 	struct device_attribute *attr, char *buf);
 static ssize_t mxt_plugin_gesture_list_store(struct device *dev,
@@ -630,18 +616,6 @@ static ssize_t mxt_plugin_clip_tag_show(struct device *dev,
 	struct device_attribute *attr, char *buf);
 #	endif
 #endif
-/*ZTEMT start add for panel without rim*/
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-static int zte_ignore_zone(int point_id, int x, int y);
-
-struct slot{
-    char slot_zoneid;//C 1,A 0,AtoC 2,CtoA 3
-    //int slot_X0;
-    //int slot_Y0;
-};
-struct slot slot_ignore[10];
-#endif
-/*zte end*/
 
 /*** ZTEMT start ***/
 int mxt_rst_number;
@@ -1844,7 +1818,6 @@ static void mxt_proc_t9_message(struct mxt_data *data, u8 *message)
 			input_mt_report_slot_state(input_dev,
 							MT_TOOL_FINGER, 0);
 			mxt_input_sync(input_dev);
-            //mxt_input_sync(data->input_rim_dev);//ZTEMT add for panel without rim
 		}
 
 		/* A reported size of zero indicates that the reported touch
@@ -1924,60 +1897,7 @@ void parse_t100_ext_message(const u8 *message, const u8 *tchcfg, struct ext_info
 	}
 }
 
-/*ZTEMT start add for panel without rim*/
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-static int zte_ignore_zone(int point_id, int x, int y) //point_id
-{
-    int i = point_id;
 
-    if((slot_ignore[i].slot_zoneid) == ZONE_C) {//front point in C zone
-        if(x < ZTEMT_C_AREA_WIDTH || x > (1080 - ZTEMT_C_AREA_WIDTH)) {//in C zone
-            return IGNORE_TURN_C;
-        } else if(x < ZTEMT_B_AREA_WIDTH || x > (1080 - ZTEMT_B_AREA_WIDTH)) {
-            slot_ignore[i].slot_zoneid = ZONE_B;//CtoB
-            printk(KERN_ERR"\nC to B\n");
-            return IGNORE_TURN_C_TO_A;
-        } else {//CtoA
-            slot_ignore[i].slot_zoneid = ZONE_A;
-            printk(KERN_ERR"\nC to A\n");
-            return IGNORE_TURN_C_TO_A;
-        }
-    } else if((slot_ignore[i].slot_zoneid) == ZONE_A) {//front point in A zone
-
-        return IGNORE_TURN_A;
-
-    } else if ((slot_ignore[i].slot_zoneid) == ZONE_B) {
-        if(x < ZTEMT_C_AREA_WIDTH || x > (1080 - ZTEMT_C_AREA_WIDTH)) {//in C zone
-            slot_ignore[i].slot_zoneid = ZONE_C;
-            printk(KERN_ERR"\nB to C\n");
-            return IGNORE_TURN_A_TO_C;
-        } else if(x < ZTEMT_B_AREA_WIDTH || x > (1080 - ZTEMT_B_AREA_WIDTH)) {
-            return IGNORE_TURN_A;
-        } else {
-            slot_ignore[i].slot_zoneid = ZONE_A;
-            printk(KERN_ERR"\nB to A\n");
-            return IGNORE_TURN_A;
-        }
-    }
-    else {//new point (slot_ignore[i].slot_zoneid) == ZONE_DEFAULT
-        if(x < ZTEMT_C_AREA_WIDTH || x > (1080 - ZTEMT_C_AREA_WIDTH)){//in C zone
-            slot_ignore[i].slot_zoneid = ZONE_C;
-            printk(KERN_ERR"start from zone C\n");
-            return IGNORE_TURN_C;
-        } else if (x < ZTEMT_B_AREA_WIDTH || x > (1080 - ZTEMT_B_AREA_WIDTH)) {
-            slot_ignore[i].slot_zoneid = ZONE_B;//in B zone
-            printk(KERN_ERR"start from zone B\n");
-            return IGNORE_TURN_A;
-        } else {//in A zone
-            slot_ignore[i].slot_zoneid = ZONE_A;
-            printk(KERN_ERR"start from zone A\n");
-            return IGNORE_TURN_A;
-        }
-    }
-    return -1;
-}
-#endif
-/*zte end*/
 
 static void mxt_proc_t100_message(struct mxt_data *data, u8 *message)
 {
@@ -1991,15 +1911,8 @@ static void mxt_proc_t100_message(struct mxt_data *data, u8 *message)
 	int x;
 	int y;
 	int tool;
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-    int ret;
-#endif
 	struct ext_info info;
 
-	/* do not report events if input device not yet registered */
-	//if (!input_dev)
-	//	return;
-	
 	if (!data->enable_reporting)
 		return;
 
@@ -2045,46 +1958,7 @@ static void mxt_proc_t100_message(struct mxt_data *data, u8 *message)
 			info.height);
 	}
 #endif
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-if (data->c_zone_flag == 1)
-{
-/*ZTEMT start add for panel without rim*/
-    ret = zte_ignore_zone(id,x,y);
-
-    if(ret == IGNORE_TURN_C){//C zone
-        input_dev = data->input_rim_dev;
-
-    }else if(ret == IGNORE_TURN_A){//A zone
         input_dev = data->input_dev;
-        
-    }else if(ret == IGNORE_TURN_C_TO_A){//C-A zone
-        dev_err(dev, "ztemt lee C-A!  id=%d\n",id);
-        input_dev = data->input_rim_dev;
-        input_mt_slot(input_dev, id);
-        input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
-        slot_ignore[id].slot_zoneid = ZONE_DEFAULT;
-       // mxt_input_sync(data->input_rim_dev);
-        input_dev = data->input_dev;
-        
-    }else if(ret == IGNORE_TURN_A_TO_C){//A-C zone
-        dev_err(dev, "ztemt lee A-C!  id=%d\n",id);
-        input_dev = data->input_dev;
-        input_mt_slot(input_dev, id);
-        input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
-        slot_ignore[id].slot_zoneid = ZONE_DEFAULT;
-       // mxt_input_sync(data->input_dev);
-        input_dev = data->input_rim_dev;
-
-    }else{
-        dev_err(dev, "ztemt lee error!\n");
-    }
-
-}else{
-    input_dev = data->input_dev;
-}
-#else
-    input_dev = data->input_dev;
-#endif
     if (!input_dev)
 		return;
 
@@ -2128,9 +2002,6 @@ if (data->c_zone_flag == 1)
 	} else {
 		/* Touch no longer active, close out slot */
 		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-        slot_ignore[id].slot_zoneid = ZONE_DEFAULT;
-#endif
 	}
 
 	data->update_input = true;
@@ -2226,7 +2097,6 @@ static void mxt_proc_t100_scr_message(struct mxt_data *data, u8 *message)
 		input_report_abs(input_dev, ABS_MT_PRESSURE,
 					 ABS_TOOL_SURRESS_PRESSURE);
 		mxt_input_sync(data->input_dev);
-        //mxt_input_sync(data->input_rim_dev);//ZTEMT start add for panel without rim
         dev_err(dev, "lee atmel have a pamel\n");
 
 		mxt_reset_slots(data);
@@ -2544,7 +2414,6 @@ static void mxt_proc_t63_messages(struct mxt_data *data, u8 *msg)
 			 (msg[2] & MXT_T63_STYLUS_BARREL));
 
 	mxt_input_sync(input_dev);
-    //mxt_input_sync(data->input_rim_dev);//ZTEMT start add for panel without rim
 }
 
 static void mxt_proc_t68_messages(struct mxt_data *data, u8 *msg)
@@ -2879,9 +2748,7 @@ static irqreturn_t mxt_process_messages_t44(struct mxt_data *data)
 end:
 	if (data->enable_reporting && data->update_input) {
 		mxt_input_sync(data->input_dev);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
         mxt_input_sync(data->input_rim_dev);//ZTEMT start add for panel without rim
-#endif
 		data->update_input = false;
 	}
 
@@ -2904,9 +2771,7 @@ static int mxt_process_messages_until_invalid(struct mxt_data *data)
 
 	if (data->enable_reporting && data->update_input) {
 		mxt_input_sync(data->input_dev);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
         mxt_input_sync(data->input_rim_dev);//ZTEMT start add for panel without rim
-#endif
 		data->update_input = false;
 	}
 
@@ -2948,9 +2813,7 @@ update_count:
 
 	if (data->enable_reporting && data->update_input) {
 		mxt_input_sync(data->input_dev);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
         mxt_input_sync(data->input_rim_dev);//ZTEMT start add for panel without rim
-#endif
 		data->update_input = false;
 	}
 
@@ -3839,12 +3702,10 @@ static void mxt_free_input_device(struct mxt_data *data)
 		data->input_dev = NULL;
 	}
 
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
 	if (data->input_rim_dev) {
 		input_unregister_device(data->input_rim_dev);
 		data->input_rim_dev = NULL;
 	}	
-#endif
 }
 
 static void mxt_free_object_table(struct mxt_data *data)
@@ -4527,11 +4388,9 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 	int i,j;
 #endif
 /*ZTEMT start add for panel without rim*/
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
 //	struct device *dev = &data->client->dev;
 	struct input_dev *input_rim_dev;
 //	int error;
-#endif
 /*ZTEMT end 20140210*/
 
 	error = mxt_read_t100_config(data);
@@ -4553,7 +4412,7 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 	input_dev->close = mxt_input_close;
 
 	set_bit(EV_ABS, input_dev->evbit);
-//	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
+	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
 #if defined(INPUT_PROP_DIRECT)
 	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 #endif
@@ -4629,7 +4488,6 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 	data->input_dev = input_dev;
 
 /*ZTEMT start add for panel without rim*/
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
 	input_rim_dev = input_allocate_device();
 	if (!data || !input_rim_dev) {
 		dev_err(dev, "Failed to allocate memory input_rim_dev\n");
@@ -4645,7 +4503,7 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 	input_rim_dev->close = mxt_input_close;
 
 	set_bit(EV_ABS, input_rim_dev->evbit);
-//	input_set_capability(input_rim_dev, EV_KEY, BTN_TOUCH);
+	input_set_capability(input_rim_dev, EV_KEY, BTN_TOUCH);
 #if defined(INPUT_PROP_DIRECT)
 	set_bit(INPUT_PROP_DIRECT, input_rim_dev->propbit);
 #endif
@@ -4719,16 +4577,13 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 	}
 
 	data->input_rim_dev = input_rim_dev;
-#endif
 /*ZTEMT end 20140210*/
 
 	return 0;
 
 err_free_mem:
 	input_free_device(input_dev);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
     input_free_device(input_rim_dev);
-#endif
 	return error;
 }
 
@@ -5649,48 +5504,32 @@ static ssize_t mxt_easy_wakeup_gesture_store(struct device *dev,
             //echo "TAP 1" > gesture_list
                 rc = mxt_plugin_gesture_list_store(dev, attr, "TAP 1", 5);
                 if(rc < 0){
-                    msleep(50);
-                    rc = mxt_plugin_gesture_list_store(dev, attr, "TAP 1", 5);
-                    if(rc < 0){
-                        dev_err(dev, "mxt_plugin_gesture_list_store write 1 error\n");
-                        //return -EINVAL;
-                    }
+                    dev_err(dev, "mxt_plugin_gesture_list_store write error\n");
+                    return -EINVAL;
                 }
                 msleep(500);
 
                 //echo "1" > en_gesture
                 rc = mxt_plugin_wakeup_gesture_store(dev, attr, "1", 1);
                 if(rc < 0){
-                    dev_err(dev, "mxt_plugin_wakeup_gesture_store write 1 error\n");
-                    msleep(3000);
-                    rc = mxt_plugin_wakeup_gesture_store(dev, attr, "1", 1);
-                    if(rc < 0){
-                        dev_err(dev, "mxt_plugin_wakeup_gesture_store write error 1\n");
-                        return -EINVAL;
-                    }
+                    dev_err(dev, "mxt_plugin_wakeup_gesture_store write error\n");
+                    return -EINVAL;
                 }
 
         }else{
             //echo "TAP 0" > gesture_list
                 rc = mxt_plugin_gesture_list_store(dev, attr, "TAP 2", 5);
                 if(rc < 0){
-                    msleep(50);
-                    rc = mxt_plugin_gesture_list_store(dev, attr, "TAP 2", 5);
-                    if(rc < 0){
-                        dev_err(dev, "mxt_plugin_gesture_list_store write 2 error\n");
-                        //return -EINVAL;
-                    }
+                    dev_dbg(dev, "mxt_plugin_gesture_list_store write error\n");
+                    return -EINVAL;
                 }
+                
                 msleep(500);
 #if 1
                 rc = mxt_plugin_wakeup_gesture_store(dev, attr, "0", 1);
                 if(rc < 0){
-                    msleep(3000);
-                    rc = mxt_plugin_wakeup_gesture_store(dev, attr, "0", 1);
-                    if(rc < 0){
-                        dev_err(dev, "mxt_plugin_wakeup_gesture_store write 0 error\n");
-                        return -EINVAL;
-                    }
+                    dev_err(dev, "mxt_plugin_wakeup_gesture_store write 0 error\n");
+                    return -EINVAL;
                 }
 #else
 /*** ZTEMT add , judge all of gesture ***/
@@ -5798,48 +5637,8 @@ static ssize_t mxt_touch_mode_store(struct device *dev,
     mxt_t6_command(data, MXT_COMMAND_CALIBRATE, 1, false);
 
     return count;
-
 }
 
-/*ZTEMT end*/
-
-//ZTE end ,20150529
-
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-static ssize_t mxt_c_zone_show(struct device *dev,
-                   struct device_attribute *attr, char *buf)
-{
-    struct mxt_data *data = dev_get_drvdata(dev);
-	int value = 0;
-    dev_info(dev, "mxt_c_zone_show \n");
-
-    value = data->c_zone_flag;
-    if (value < 0) {
-		dev_err(dev, "%s: Invalid value\n", __func__);
-		return snprintf(buf, PAGE_SIZE, "error\n");
-    }
-    return snprintf(buf, PAGE_SIZE, "0x%02X\n",value);
-}
-
-static ssize_t mxt_c_zone_store(struct device *dev,
-    struct device_attribute *attr, const char *buf, size_t count)
-{
-    struct mxt_data *data = dev_get_drvdata(dev);
-	int rc = 0;
-	int value = 1;
-    dev_info(dev, "mxt_c_zone_store \n");
-
-	rc = sscanf(buf, "%x", &value);
-	if (rc != 1) {
-		dev_err(dev, "%s: Invalid value\n", __func__);
-		return count;
-	}
-   
-    data->c_zone_flag = value;
-    
-    return count;
-}
-#endif
 /*ZTEMT end*/
 
 static DEVICE_ATTR(fw_version, S_IRUGO, mxt_fw_version_show, NULL);
@@ -5864,9 +5663,7 @@ static DEVICE_ATTR(manual_cali, 0444, mxt_manual_cali_show,NULL);
 static DEVICE_ATTR(easy_wakeup_gesture, 0222, NULL, mxt_easy_wakeup_gesture_store);//mxt_plugin_wakeup_gesture_show
 //static DEVICE_ATTR(slide_switch_gesture, S_IWUSR /*| S_IRUSR | S_IWGRP | S_IWOTH*/, NULL, mxt_slide_switch_gesture_store);//add by ZTE ,20150206
 static DEVICE_ATTR(touch_mode, S_IWUSR | S_IRUSR, mxt_touch_mode_show, mxt_touch_mode_store);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-static DEVICE_ATTR(c_zone, S_IWUSR | S_IRUSR, mxt_c_zone_show, mxt_c_zone_store);
-#endif
+
 /*ZTEMT end*/
 static DEVICE_ATTR(depth, S_IWUSR | S_IRUSR, mxt_irq_depth_show, 
 			mxt_irq_depth_store);
@@ -5927,9 +5724,6 @@ static struct attribute *mxt_attrs[] = {
 //	&dev_attr_slide_switch_gesture.attr,//add by ZTE ,20150206
 	&dev_attr_manual_cali.attr,//add by ZTE ,20150205
 	&dev_attr_touch_mode.attr,
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-	&dev_attr_c_zone.attr,
-#endif
 	&dev_attr_depth.attr,
 #if defined(CONFIG_MXT_PLUGIN_SUPPORT)
 	&dev_attr_plugin.attr,
@@ -5966,19 +5760,13 @@ static const struct attribute_group mxt_attr_group = {
 static void mxt_reset_slots(struct mxt_data *data)
 {
 	struct input_dev *input_dev = data->input_dev;
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
     struct input_dev *input_rim_dev = data->input_rim_dev;
-#endif
 	unsigned int num_mt_slots;
 	int id;
 
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
 	if (!input_dev || !input_rim_dev)
 		return;
-#else
-    if (!input_dev)
-		return;
-#endif
+
 	num_mt_slots = data->num_touchids + data->num_stylusids;
 #if defined(CONFIG_MXT_PLUGIN_SUPPORT)
 	mxt_plugin_hook_reset_slots(&data->plug);
@@ -5991,7 +5779,6 @@ static void mxt_reset_slots(struct mxt_data *data)
 		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
 	}
 /*ZTEMT start add for panel without rim*/
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
 	for (id = 0; id < num_mt_slots; id++) {
 		input_mt_slot(input_rim_dev, id);
 		if (test_flag_8bit(MXT_T100_TCHAUX_AMPL, &data->tchcfg[MXT_T100_TCHAUX]))
@@ -5999,13 +5786,11 @@ static void mxt_reset_slots(struct mxt_data *data)
 					 0);
 		input_mt_report_slot_state(input_rim_dev, MT_TOOL_FINGER, 0);
 	}
-#endif
 /*ZTEMT end 20140210*/
 
 	mxt_input_sync(input_dev);
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
     mxt_input_sync(input_rim_dev);//ZTEMT start add for panel without rim
-#endif
+
 }
 
 static void mxt_start(struct mxt_data *data, bool resume)
@@ -6412,7 +6197,7 @@ static int mxt_initialize_t9_input_device(struct mxt_data *data)
 	input_dev->close = mxt_input_close;
 
 	__set_bit(EV_ABS, input_dev->evbit);
-//	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
+	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
 #if defined(INPUT_PROP_DIRECT)
 	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 #endif
@@ -6522,9 +6307,7 @@ static int mxt_probe(struct i2c_client *client,
 {
 	struct mxt_data *data;
 	int error;
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-    int i;
-#endif
+
 	dev_info(&client->dev, "%s: driver version 0x%x\n", 
 			__func__,DRIVER_VERSION);
 
@@ -6668,16 +6451,7 @@ static int mxt_probe(struct i2c_client *client,
 	register_early_suspend(&data->early_suspend);
 
 #endif
-    /*ZTEMT start add for panel without rim*/
-#if defined(CONFIG_ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE)
-        for(i=0;i<10;i++){
-            slot_ignore[i].slot_zoneid = ZONE_DEFAULT; 
-            //slot_ignore[i].slot_X0 = 0;
-            //slot_ignore[i].slot_Y0 = 0;
-        }
-        data->c_zone_flag = 1;
-#endif
-    /*ZTEMT end 20140210*/
+
         wake_lock_init(&data->wake_lock, WAKE_LOCK_SUSPEND, "atmel_mxt_wakelock");//add by ztemt 20150403
 
 	dev_info(&client->dev, "Mxt probe finished\n");

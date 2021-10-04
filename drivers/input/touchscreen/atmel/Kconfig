@@ -25,9 +25,4 @@ config TOUCHSCREEN_ATMEL_MXTS_DEBUG
 	  Enable Debug output for Cypress TrueTouch(tm)
 	  Say Y here to enable debug output.
 
-config ZTEMT_TOUCHSCREEN_ATMEL_MXTS_C_ZONE
-	bool "ATMEL Touthscreen C ZONE"
-	depends on ZTEMT_TOUCHSCREEN_ATMEL_MXTS
-	default n
-
 endif

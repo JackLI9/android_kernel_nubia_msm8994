@@ -615,8 +615,6 @@
 			    qcom,pause-hi = <0>;
 			    qcom,ramp-step-ms = <200>;
 				qcom,max-current = <12>;
-				qcom,is_auto_breath = <1>;
-				qcom,led_channel = <0x10>;
 				qcom,default-state = "off";
 				linux,name = "nubia_led";
 				linux,default-trigger = "none";

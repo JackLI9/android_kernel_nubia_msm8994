@@ -50,7 +50,7 @@ static int debug_mask_smbchg = 1;
 module_param_named(
 	debug_mask_smbchg, debug_mask_smbchg, int, S_IRUSR | S_IWUSR
 );
-#define DBG_CHARGE(x...) do {if (debug_mask_smbchg) pr_info(">>ZTEMT_CHARGE>>  " x); } while (0)
+#define DBG_CHARGE(x...) do {if (debug_mask_smbchg) pr_debug(">>ZTEMT_CHARGE>>  " x); } while (0)
 #endif
 
 #ifdef CONFIG_ZTEMT_MSM8994_CHARGER

@@ -32,7 +32,7 @@
 #ifdef CONFIG_ZTEMT_MSM8994_CHARGER
 static int debug_mask_smb1357 = 0;
 module_param_named(debug_mask_smb1357, debug_mask_smb1357, int, S_IRUSR | S_IWUSR);
-#define DBG_SMB1357(x...)   do {if (debug_mask_smb1357) pr_info(">>ZTEMT_CHARGE>>  " x); } while (0)
+#define DBG_SMB1357(x...)   do {if (debug_mask_smb1357) pr_debug(">>ZTEMT_CHARGE>>  " x); } while (0)
 #endif
 
 #ifdef CONFIG_ZTEMT_MSM8994_CHARGER

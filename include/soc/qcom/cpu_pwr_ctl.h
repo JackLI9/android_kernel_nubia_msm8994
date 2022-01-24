@@ -16,6 +16,8 @@
 #ifdef CONFIG_MSM_CPU_PWR_CTL
 int msm_unclamp_secondary_arm_cpu_sim(unsigned int cpu);
 int msm_unclamp_secondary_arm_cpu(unsigned int cpu);
+int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu);
+int msm8994_cpu_ldo_config(unsigned int cpu);
 int msm8953_unclamp_secondary_arm_cpu(unsigned int cpu);
 int msm8937_unclamp_secondary_arm_cpu(unsigned int cpu);
 #else
@@ -24,6 +26,14 @@ static inline int msm_unclamp_secondary_arm_cpu_sim(unsigned int cpu)
 	return 0;
 }
 static inline int msm_unclamp_secondary_arm_cpu(unsigned int cpu)
+{
+	return 0;
+}
+static inline int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
+{
+	return 0;
+}
+static inline int msm8994_cpu_ldo_config(unsigned int cpu)
 {
 	return 0;
 }

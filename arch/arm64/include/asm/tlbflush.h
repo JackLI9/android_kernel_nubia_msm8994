@@ -106,9 +106,9 @@ static inline void flush_tlb_all(void)
 static inline void flush_tlb_mm(struct mm_struct *mm)
 {
 #ifdef CONFIG_ARCH_MSM8994_V1_TLBI_WA
-	dsb();
+	dsb(ishst);
 	__tlbi(vmalle1is);
-	dsb();
+	dsb(ish);
 	isb();
 #else
 	unsigned long asid = ASID(mm) << 48;
@@ -124,9 +124,9 @@ static inline void flush_tlb_page(struct vm_area_struct *vma,
 				  unsigned long uaddr)
 {
 #ifdef CONFIG_ARCH_MSM8994_V1_TLBI_WA
-	dsb();
+	dsb(ishst);
 	__tlbi(vmalle1is);
-	dsb();
+	dsb(ish);
 	isb();
 #else
 	unsigned long addr = uaddr >> 12 | (ASID(vma->vm_mm) << 48);

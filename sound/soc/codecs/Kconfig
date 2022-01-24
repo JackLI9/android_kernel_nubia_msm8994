@@ -315,6 +315,9 @@ config SND_SOC_AK4642
 config SND_SOC_AK4671
 	tristate
 
+config SND_SOC_AK4961
+	tristate
+
 config SND_SOC_AK5386
 	tristate "AKM AK5638 CODEC"
 
@@ -635,6 +638,9 @@ config SND_SOC_WCD9335
 config SND_SOC_BG_CODEC
 	tristate
 	default m if MSM_BG_GLINK=y
+
+config ZTE_NXP_SMART_PA
+    bool "zte add NXP smart pa chip tfa9888"
 
 config SND_SOC_WSA881X_SENSORS
 	tristate

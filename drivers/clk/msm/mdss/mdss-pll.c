@@ -135,6 +135,9 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8909")) {
 		pll_res->pll_interface_type = MDSS_DSI_PLL_LPM;
 		pll_res->target_id = MDSS_PLL_TARGET_8909;
+	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8994")) {
+		pll_res->pll_interface_type = MDSS_DSI_PLL_20NM;
+		pll_res->target_id = MDSS_PLL_TARGET_8994;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8996")) {
 		pll_res->pll_interface_type = MDSS_DSI_PLL_8996;
 		pll_res->target_id = MDSS_PLL_TARGET_8996;
@@ -181,6 +184,9 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 	switch (pll_res->pll_interface_type) {
 	case MDSS_DSI_PLL_LPM:
 		rc = dsi_pll_clock_register_lpm(pdev, pll_res);
+		break;
+	case MDSS_DSI_PLL_20NM:
+		rc = dsi_pll_clock_register_20nm(pdev, pll_res);
 		break;
 	case MDSS_DSI_PLL_8996:
 		rc = dsi_pll_clock_register_8996(pdev, pll_res);
@@ -295,6 +301,25 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		goto res_parse_error;
 	}
 
+	/*
+	 * DSI PLL 1 is leaking current whenever MDSS GDSC is toggled. Need to
+	 * map PLL1 registers along with the PLl0 so that we can manually turn
+	 * off PLL1.
+	 */
+	if (pll_res->pll_interface_type == MDSS_DSI_PLL_20NM) {
+		struct resource *pll_1_base_reg;
+		pll_1_base_reg = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "pll_1_base");
+		if (pll_1_base_reg) {
+			pll_res->pll_1_base = ioremap(pll_1_base_reg->start,
+					resource_size(pll_1_base_reg));
+			if (!pll_res->pll_1_base)
+				pr_err("Unable to remap pll 1 base resources\n");
+		} else {
+			pr_err("Unable to get the pll 1 base resource\n");
+		}
+	}
+
 	phy_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "phy_base");
 	if (phy_base_reg) {
@@ -334,6 +359,11 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		goto gdsc_io_error;
 	}
 
+	pll_res->pll_en_90_phase = of_property_read_bool(pdev->dev.of_node,
+						"qcom,mdss-en-pll-90-phase");
+	if (pll_res->pll_en_90_phase)
+		pr_debug("%s: PLL configured to enable 90-Phase", __func__);
+
 	rc = mdss_pll_resource_init(pdev, pll_res);
 	if (rc) {
 		pr_err("Pll ndx=%d resource init failed rc=%d\n",
@@ -362,6 +392,8 @@ dyn_pll_io_error:
 	if (pll_res->phy_base)
 		iounmap(pll_res->phy_base);
 phy_io_error:
+	if (pll_res->pll_1_base)
+		iounmap(pll_res->pll_1_base);
 	mdss_pll_resource_release(pdev, pll_res);
 res_parse_error:
 	iounmap(pll_res->pll_base);
@@ -393,6 +425,7 @@ static int mdss_pll_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mdss_pll_dt_match[] = {
+	{.compatible = "qcom,mdss_dsi_pll_8994"},
 	{.compatible = "qcom,mdss_dsi_pll_8996"},
 	{.compatible = "qcom,mdss_dsi_pll_8996_v2"},
 	{.compatible = "qcom,mdss_hdmi_pll_8996"},

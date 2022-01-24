@@ -92,6 +92,8 @@ obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-core.o
 obj-$(CONFIG_MFD_SMSC)        += smsc-ece1099.o
 obj-$(CONFIG_MCP_UCB1200_TS)	+= ucb1x00-ts.o
 
+obj-$(CONFIG_AK4961_CODEC)	+= ak49xx-core.o ak49xx-irq.o\
+						ak49xx-slimslave.o ak49xx-core-resource.o
 ifeq ($(CONFIG_SA1100_ASSABET),y)
 obj-$(CONFIG_MCP_UCB1200)	+= ucb1x00-assabet.o
 endif

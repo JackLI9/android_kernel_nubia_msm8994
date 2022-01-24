@@ -18,6 +18,7 @@
 #include <linux/of_address.h>
 #include <linux/dma-contiguous.h>
 #include <soc/qcom/scm.h>
+#include <linux/cma.h>
 
 #define SHARED_HEAP_SVC_ID 0x2
 #define SHARED_HEAP_CMD_ID 0xB
@@ -68,7 +69,7 @@ static int msm_shared_heap_populate_base_and_size
 			goto out;
 		}
 		*size = (size_t)len;
-		*base = cma_get_base(priv);
+		*base = cma_get_base(dev_get_cma_area(priv));
 		of_node_put(pnode);
 	} else {
 		pr_err("%s: Unable to parse phandle\n", __func__);

@@ -215,6 +215,11 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
 	apq8017-pmi8950-cdp-wcd-rome.dtb \
 	apq8017-no-pmi-wcd-rome-cdp.dtb
 
+ifeq ($(CONFIG_MACH_ZTE_NX508J),y)
+dtb-$(CONFIG_ARCH_MSM8994) += msm8994-v2.0-mtp-NX508J.dtb \
+	msm8994-v2.1-mtp-NX508J.dtb
+endif
+
 dtb-$(CONFIG_ARCH_MSM8920) += msm8920-pmi8937-cdp.dtb \
 	msm8920-pmi8937-mtp.dtb \
 	msm8920-pmi8950-cdp.dtb \

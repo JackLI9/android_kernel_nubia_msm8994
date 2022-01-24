@@ -636,6 +636,42 @@ config MSM_BCL_PERIPHERAL_CTL
 	  provides routines to configure and monitor the BCL
 	  PMIC peripheral.
 
+################ztemt hw_version config start################
+config ZTEMT_HW_VERSION
+	bool "ZTEMT HW VERSION"
+	default n
+	help
+	  ZTEMT HW VERSION
+	  battery JEITA compliance
+config ZTEMT_HW_VERSION_DEBUG
+	bool "ZTEMT HW VERSION DEBUG"
+	depends on ZTEMT_HW_VERSION
+	default n
+	help
+	  ZTEMT HW VERSION DEBUG
+
+config ZTEMT_HW_VERSION_NX508J
+	bool "ZTEMT HW VERSION NX508J"
+	depends on ZTEMT_HW_VERSION
+	default n
+	help
+	  ZTEMT HW VERSION NX508J
+
+config ZTEMT_HW_CONFIG_ITEM
+	bool "ZTEMT HW CONFIG ITEM"
+	depends on ZTEMT_HW_VERSION
+	default n
+	help
+	  ZTEMT HW CONFIG ITEM
+	  
+config ZTEMT_HW_VER_BY_ADC
+	bool "ZTEMT HW VER BY ADC"
+	depends on ZTEMT_HW_VERSION
+	default n
+	help
+	  ZTEMT HW VER BY ADC
+################ztemt hw_version config end#################
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY

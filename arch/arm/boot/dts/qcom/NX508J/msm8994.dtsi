@@ -3370,7 +3370,7 @@
 					<100 512 100000 200000>; /* 800 Mbps */
 	};
 
-	audio_heap {
+	/*audio_heap {
 		compatible = "qcom,msm-shared-memory";
 		qcom,proc-id = <1>;
 		memory-region = <&audio_mem>;
@@ -3380,7 +3380,7 @@
 		compatible = "qcom,msm-shared-memory";
 		qcom,proc-id = <1>;
 		memory-region = <&adsp_mem>;
-	};
+	};*/
 
 	qcom,msm-core@fc4b8000 {
 		compatible = "qcom,apss-core-ea";

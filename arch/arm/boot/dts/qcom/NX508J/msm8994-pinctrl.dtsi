@@ -52,12 +52,12 @@
 		// add the uart pinctrl for IR-remote control
 		blsp_uart1_active: uart1_default {
 			mux {
-				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				pins = "gpio0", "gpio1";
 				function = "blsp_uart1";
 			};
 
 			config {
-				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				pins = "gpio0", "gpio1";
 				drive-strength = <16>;
 				bias-disable;
 			};
@@ -650,7 +650,7 @@
 			/* active state */
 			i2c_2_active: i2c_2_active{
 				mux {
-					/* CLK, DATA */
+					/* SDA, SCL */
 					pins = "gpio6", "gpio7";
 					function = "blsp_i2c2";
 				};
@@ -665,7 +665,7 @@
 			/* suspended state */
 			i2c_2_sleep: i2c_2_sleep {
 				mux {
-					/* CLK, DATA */
+					/* SDA, SCL */
 					pins = "gpio6", "gpio7";
 					function = "blsp_i2c2";
 				};
@@ -682,7 +682,7 @@
 			/* active state */
 			i2c_11_active: i2c_11_active{
 				mux {
-					/* CLK, DATA */
+					/* SDA, SCL */
 					pins = "gpio83", "gpio84";
 					function = "blsp_i2c11";
 				};
@@ -697,7 +697,7 @@
 			/* suspended state */
 			i2c_11_sleep: i2c_11_sleep {
 				mux {
-					/* CLK, DATA */
+					/* SDA, SCL */
 					pins = "gpio83", "gpio84";
 					function = "blsp_i2c11";
 				};
@@ -824,7 +824,7 @@
 			/* suspended state */
 			i2c_6_sleep: i2c_6_sleep {
 				mux {
-					/* CLK, DATA */
+					/* SDA, SCL */
 					pins = "gpio28", "gpio27";
 					function = "blsp_i2c6";
 				};

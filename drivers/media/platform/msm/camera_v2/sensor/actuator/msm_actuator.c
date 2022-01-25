@@ -17,6 +17,10 @@
 #include "msm_actuator.h"
 #include "msm_cci.h"
 
+// ZTEMT: fuyipeng add manual AF for imx234  -----start
+#define ZTE_ACTUATOR_MAF_OFFSET 100
+// ZTEMT: fuyipeng add manual AF for imx234  -----end
+
 DEFINE_MSM_MUTEX(msm_actuator_mutex);
 
 #undef CDBG
@@ -30,7 +34,15 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define PARK_LENS_MID_STEP 5
 #define PARK_LENS_SMALL_STEP 3
 #define MAX_QVALUE 4096
-
+/*ZTEMT:wangkai add sharp ois af driver-----Start*/
+#ifdef CONFIG_IMX234_OIS_SHARP
+unsigned short af_start_value_lc898122_sharp = 0;
+unsigned short af_infinity_value_lc898122_sharp = 0;
+unsigned short af_macro_value_lc898122_sharp = 0;
+extern void msm_af_reg_write_lc898122_sharp(unsigned short reg_addr, unsigned char write_data_8);
+extern unsigned char macro_limit_flag;
+#endif
+/*ZTEMT:wangkai add sharp ois af driver-----End*/
 static struct v4l2_file_operations msm_actuator_v4l2_subdev_fops;
 static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl);
 static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl);
@@ -121,6 +133,22 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 				i2c_byte1 = write_arr[i].reg_addr;
 				i2c_byte2 = value;
 				if (size != (i+1)) {
+					/*ZTEMT:wangkai add sharp ois af driver-----Start*/
+					#ifdef CONFIG_IMX234_OIS_SHARP
+					i2c_byte2 = ((value & 0x0700) >> 8)|0x04;
+					CDBG("byte1:0x%x, byte2:0x%x\n",
+						i2c_byte1, i2c_byte2);
+					i2c_tbl[a_ctrl->i2c_tbl_index].
+						reg_addr = i2c_byte1;
+					i2c_tbl[a_ctrl->i2c_tbl_index].
+						reg_data = i2c_byte2;
+					i2c_tbl[a_ctrl->i2c_tbl_index].
+						delay = 0;
+					a_ctrl->i2c_tbl_index++;
+					i++;
+					i2c_byte1 = write_arr[i].reg_addr;
+					i2c_byte2 = value & 0xFF;
+			        #else
 					i2c_byte2 = value & 0xFF;
 					CDBG("byte1:0x%x, byte2:0x%x\n",
 						i2c_byte1, i2c_byte2);
@@ -139,6 +167,8 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 					i++;
 					i2c_byte1 = write_arr[i].reg_addr;
 					i2c_byte2 = (value & 0xFF00) >> 8;
+					#endif
+					/*ZTEMT:wangkai add sharp ois af driver-----End*/
 				}
 			} else {
 				i2c_byte1 = (value & 0xFF00) >> 8;
@@ -372,6 +402,15 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 	CDBG("Enter\n");
 
 	save_addr_type = a_ctrl->i2c_client.addr_type;
+	/*ZTEMT:wangkai add sharp ois af driver-----Start*/
+	#ifdef CONFIG_IMX234_OIS_SHARP
+       i = 0;
+	if ((a_ctrl->act_device_type == MSM_CAMERA_PLATFORM_DEVICE) && \
+		(a_ctrl->i2c_client.cci_client->sid == 0x48 >> 1)) {
+		 rc = 0;
+               //printk(" goto init sharp lc898122 focus\n");
+	}
+	#else
 	for (i = 0; i < size; i++) {
 
 		switch (settings[i].addr_type) {
@@ -421,7 +460,8 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 			break;
 		}
 	}
-
+    #endif
+	/*ZTEMT:wangkai add sharp ois af driver-----End*/
 	a_ctrl->curr_step_pos = 0;
 	/*
 	 * Recover register addr_type after the init
@@ -1699,6 +1739,15 @@ static long msm_actuator_subdev_do_ioctl(
 
 			parg = &actuator_data;
 			break;
+
+            // ZTEMT: fuyipeng add for manual AF -----start
+            case  CFG_SET_ACTUATOR_NAME:
+                   actuator_data.cfgtype = u32->cfgtype;
+                   actuator_data.cfg.act_name = u32->cfg.act_name;
+                   parg = &actuator_data;
+			break;
+            // ZTEMT: fuyipeng add for manual AF -----end
+
 		case CFG_SET_DEFAULT_FOCUS:
 		case CFG_MOVE_FOCUS:
 			actuator_data.cfgtype = u32->cfgtype;
@@ -1727,15 +1776,25 @@ static long msm_actuator_subdev_do_ioctl(
 			memcpy(&actuator_data.cfg.setpos, &(u32->cfg.setpos),
 				sizeof(struct msm_actuator_set_position_t));
 			break;
+        /*ZTEMT:jixd add for af infinity calibration -----start*/
+        case CFG_SET_INFINITY_POS:
+           actuator_data.cfgtype = u32->cfgtype;
+           actuator_data.cfg.infinity_pos = u32->cfg.infinity_pos;
+           parg = &actuator_data;
+           break;
+        /*ZTEMT:jixd add for af infinity calibration -----end*/
+
 		default:
 			actuator_data.cfgtype = u32->cfgtype;
 			parg = &actuator_data;
 			break;
 		}
 		break;
+#ifndef CONFIG_ZTE_CAMERA_NX508J
 	case VIDIOC_MSM_ACTUATOR_CFG:
 		pr_err("%s: invalid cmd 0x%x received\n", __func__, cmd);
 		return -EINVAL;
+#endif
 	}
 
 	rc = msm_actuator_subdev_ioctl(sd, cmd, parg);

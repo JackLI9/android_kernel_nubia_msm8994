@@ -1390,13 +1390,13 @@ static int msm_probe(struct platform_device *pdev)
 					 &logsync_fops))
 			pr_warn("NON-FATAL: failed to create logsync debugfs file\n");
 	}
-
+#ifndef CONFIG_ZTE_CAMERA_NX508J
 	rc = cam_ahb_clk_init(pdev);
 	if (rc < 0) {
 		pr_err("%s: failed to register ahb clocks\n", __func__);
 		goto v4l2_fail;
 	}
-
+#endif
 	goto probe_end;
 
 v4l2_fail:

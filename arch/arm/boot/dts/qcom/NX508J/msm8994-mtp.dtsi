@@ -299,26 +299,20 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-&pmx_mdss {
-	// qcom,num-grp-pins = <1>;
-	// qcom,pins = <&gp 78>;
-	mux {
-		pins = "gpio78";
-		function = "gpio";
-	};
-};
-
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_sp_1080_5p0_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active>;
 	pinctrl-1 = <&mdss_dsi_suspend>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,display-id = "primary";
 	qcom,dsi-panel-bias-vreg;
 	qcom,platform-reset-gpio = <&tlmm 78 0>;
 };
 
 &mdss_dsi1 {
-	status = "no";
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	status = "disabled";
 };
 
 &dsi_sp_1080_5p0_vid{
@@ -333,33 +327,6 @@
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
 	qcom,qpnp-ibb-discharge-resistor = <32>;
-};
-
-&pmx_hdmi_cec {
-	// qcom,num-grp-pins = <1>;
-	// qcom,pins = <&gp 31>;
-	mux {
-		pins = "gpio31";
-		function = "gpio";
-	};
-};
-
-&pmx_hdmi_ddc {
-	// qcom,num-grp-pins = <2>;
-	// qcom,pins = <&gp 32>, <&gp 33>;
-	mux {
-		pins = "gpio32", "gpio32";
-		function = "gpio";
-	};
-};
-
-&pmx_hdmi_hpd {
-	// qcom,num-grp-pins = <1>;
-	// qcom,pins = <&gp 34>;
-	mux {
-		pins = "gpio34";
-		function = "gpio";
-	};
 };
 
 &mdss_hdmi_tx {

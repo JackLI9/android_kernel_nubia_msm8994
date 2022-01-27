@@ -44,6 +44,8 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+static void mdss_dsi_res_deinit(struct platform_device *pdev);
+static int mdss_dsi_res_init(struct platform_device *pdev);
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -3203,6 +3205,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	else
 		pdev->id = 2;
 
+	rc = mdss_dsi_res_init(pdev);
+	if (rc) {
+		pr_err("%s Unable to set dsi res\n", __func__);
+		return rc;
+	}
+
 	ctrl_pdata = mdss_dsi_get_ctrl(index);
 	if (!ctrl_pdata) {
 		pr_err("%s: Unable to get the ctrl_pdata\n", __func__);
@@ -3866,6 +3874,7 @@ static int mdss_dsi_ctrl_remove(struct platform_device *pdev)
 	if (ctrl_pdata->workq)
 		destroy_workqueue(ctrl_pdata->workq);
 
+	mdss_dsi_res_deinit(pdev);
 	return 0;
 }
 

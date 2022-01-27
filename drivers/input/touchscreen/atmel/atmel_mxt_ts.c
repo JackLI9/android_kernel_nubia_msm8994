@@ -3087,9 +3087,10 @@ static int mxt_process_message_thread(void *dev_id)
 				}
 			}
 
-			if (atomic_read(&data->depth) <= 0) 
+			if (atomic_read(&data->depth) <= 0) {
 				atomic_inc(&data->depth);
-			board_enable_irq(pdata,data->irq);
+				board_enable_irq(pdata,data->irq);
+			}
 		}
 
 		if (data->suspended) {

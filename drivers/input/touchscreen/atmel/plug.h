@@ -451,7 +451,7 @@ struct t68_config_tail {
 
 /* T71 reg array */
 #define MXT_T71_RESET_MAGIC_WORD	0x16
-#define MXT_T71_RESET_TAG		10
+#define MXT_T71_RESET_TAG		100
 
 /* T80 reg array */
 #define MXT_T80_CTRL		0

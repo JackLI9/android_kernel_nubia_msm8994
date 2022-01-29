@@ -106,6 +106,7 @@ static inline unsigned long test_flag_8bit(unsigned long mask, const volatile un
 {
 	return ((*addr) & mask) != 0;
 }
+
 static inline unsigned long test_flag(unsigned long mask, const volatile unsigned long *addr)
 {
 	return ((*addr) & mask) != 0;

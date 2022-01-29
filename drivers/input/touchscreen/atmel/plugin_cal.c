@@ -17,9 +17,13 @@
 		email:  pitter.liao@atmel.com 
 		mobile: 13244776877
 -----------------------------------------------------------------*/
-#define PLUG_CAL_VERSION 0x0002
+#define PLUG_CAL_VERSION 0x0003
 /*----------------------------------------------------------------
 fixed some bugs
+0.2
+1 improved version 1:  
+<a> fetch data from T37
+<b> calibration condition
 0.1
 1 first version of CAL plugin: calibration recovery support
 */
@@ -189,7 +193,7 @@ struct se_config {
 };
 
 enum{
-    SC_NEG_K,
+    SC_NEG_K,  // Not use now
     SC_NEG,	//<= SC_NEG: recognize as negotive delta
     SC_NO,	//-SC_NO ~ SC_NO: recognize as no delta
     SC_POS,	// >= SC_POS: recognize as positive delta
@@ -491,7 +495,7 @@ static int rc_handle_mv_message(struct plugin_cal *p)
 	}
 
 	if (ret == 0)
-		dev_err(dev, "trace(%d) mov %d\n",i, dst0);
+		dev_info2(dev, "trace(%d) mov %d\n",i, dst0);
 
 	return ret;
 }
@@ -593,10 +597,10 @@ static int rc_handle_sc_message(struct plugin_cal *p, const struct samples *s)
 				if (obs->touch_id_list)
 					sc_obs->cnt.pend++;
 				sc_obs->cnt.retry = 0;
-			}else {
+			}else {				
 				sc_obs->cnt.retry++;
 
-				if (sc_obs->cnt.retry >= sc_cfg->count.retry) {
+				if (sc_obs->cnt.retry >= sc_cfg->count.retry) {				
 					if (sc_obs->cnt.bad) {
 						sc_obs->cnt.bad--;
 						sc_obs->cnt.pend++;
@@ -621,13 +625,14 @@ static int rc_handle_sc_message(struct plugin_cal *p, const struct samples *s)
 	}
 
 	sc_obs->cnt.count++;
-	if (ret) {
-		dev_err(dev, "rc_handle_sc_message sc(%ld) cnt (accu %d neg %d nor %d pos %d) count %d bad %d pend %d sleep %d touch(%lx)\n", 
-			s->type,val[SC_ACCU], val[SC_NEG],val[SC_NO],val[SC_POS],
-			sc_obs->cnt.count, sc_obs->cnt.bad, sc_obs->cnt.pend,sc_obs->cnt.sleep,
-			obs->touch_id_list);
+
+	//if (ret) {
+	//	dev_info2(dev, "rc_handle_sc_message sc(%ld) cnt (accu %d neg %d nor %d pos %d) count %d bad %d pend %d sleep %d retry %d touch(%lx)\n", 
+	//		s->type, val[SC_ACCU], val[SC_NEG],	val[SC_NO],val[SC_POS],
+	//		sc_obs->cnt.count, sc_obs->cnt.bad, sc_obs->cnt.pend,sc_obs->cnt.sleep,sc_obs->cnt.retry,
+	//		obs->touch_id_list);
 		print_dec16_buf(KERN_INFO, "s content", s->buf, s->command.num >> 1);
-	}
+	//}
 	return ret;
 }
 
@@ -832,7 +837,8 @@ static ssize_t rc_mv_show(struct plugin_cal *p, char *buf, size_t count)
 	dev_info(dev, "[mxt]mv distance: %d\n", mv_cfg->distance);
 
 	dev_info(dev, "[mxt]mv interval: %ld %ld\n", 
-		mv_cfg->interval_sampling, mv_cfg->interval_valid);
+		mv_cfg->interval_sampling,
+		mv_cfg->interval_valid);
 
 	for (i = 0; i < MAX_TRACE_POINTS; i++) {
 		tra = &mv_obs->trace[i];
@@ -871,10 +877,10 @@ static ssize_t rc_se_show(struct plugin_cal *p, char *buf, size_t count)
 		se_obs->flag);
 
 	if (count > 0) {
-		offset += scnprintf(buf + offset, count - offset, "SE: thld %d hysis %d bad %d pend %d sleep %d\n",
+		offset += scnprintf(buf + offset, count - offset, "SE CFG: thld %d hysis %d bad %d pend %d sleep %d\n",
 			se_cfg->thld, se_cfg->hysis,se_cfg->count.bad,se_cfg->count.pend,se_cfg->count.sleep);
 	
-		offset += scnprintf(buf + offset, count - offset, "SE: bad %d pend %d\n",
+		offset += scnprintf(buf + offset, count - offset, "SE obs: bad %d pend %d\n",
 			se_obs->cnt.bad, se_obs->cnt.pend);
 	}
 
@@ -905,10 +911,10 @@ static ssize_t rc_sc_show(struct plugin_cal *p, char *buf, size_t count)
 					i, j, sc_cfg->cond[i][j].thld, sc_cfg->cond[i][j].num);
 			}
 		}
-		offset += scnprintf(buf + offset, count - offset, "SC: bad %d pend %d\n",
+		offset += scnprintf(buf + offset, count - offset, "SC CFG: bad %d pend %d\n",
 			sc_cfg->count.bad, sc_cfg->count.pend);
 	
-		offset += scnprintf(buf + offset, count - offset, "SC: bad %d pend %d\n",
+		offset += scnprintf(buf + offset, count - offset, "SC obs: bad %d pend %d\n",
 			sc_obs->cnt.bad, sc_obs->cnt.pend);
 	}
 
@@ -1074,11 +1080,14 @@ static int plugin_cal_debug_store(struct plugin_cal *p, const char *buf, size_t 
 							sc_cfg->cond[config[0]][config[1]].thld = config[2];
 							sc_cfg->cond[config[0]][config[1]].num = config[3];
 						}
-					}else if (sscanf(buf + offset, "count: %d,%d,%d%n", &config[0],&config[1],&config[2],&ofs) == 3) {
+					}else if (sscanf(buf + offset, "count: %d,%d,%d,%d,%d,%d%n", &config[0],&config[1],&config[2],&config[3],&config[4],&config[5],&ofs) == 3) {
 							offset += ofs;
-							sc_cfg->count.bad = config[0];
-							sc_cfg->count.pend = config[1];
-							sc_cfg->count.pend = config[2];
+							sc_cfg->count.count = config[0];
+							sc_cfg->count.good = config[1];
+							sc_cfg->count.bad = config[2];
+							sc_cfg->count.pend = config[3];
+							sc_cfg->count.sleep = config[4];
+							sc_cfg->count.retry = config[5];
 					}else{
 						dev_err(dev, "Unknow rc sc command: %s\n",buf + offset);
 					}
@@ -1144,14 +1153,14 @@ static struct sc_condition sc_rc_condition[NUM_OBJ_TYPE][NUM_SC_CONDITION] = {
 		{10, 16},		//SC_NO
 		{100, 1},		//SC_POS
 		{-150,0},		//SC_ACCU
-		{-350,0},		//SC_ACCU_K
+		{-350,1},		//SC_ACCU_K
 	},
 	{	//SC_TOUCH	
 		{0, 0},		//SC_NEG_K
 		{-15, 5},		//SC_NEG
-		{25, 12},		//SC_NO
-		{35, 1},		//SC_POS
-		{-80,5},		//SC_ACCU
+		{10, 16},		//SC_NO
+		{100, 1},		//SC_POS
+		{-150,5},		//SC_ACCU
 		{-350,0},		//SC_ACCU_K
 	},
 	{	//SC_HOVER	
@@ -1159,7 +1168,7 @@ static struct sc_condition sc_rc_condition[NUM_OBJ_TYPE][NUM_SC_CONDITION] = {
 		{-15, 5},		//SC_NEG
 		{10, 16},		//SC_NO
 		{100, 1},		//SC_POS
-		{-150,0},		//SC_ACCU
+		{-150,5},		//SC_ACCU
 		{-350,0},		//SC_ACCU_K
 	},
 	{	//SC_PROX	
@@ -1167,7 +1176,7 @@ static struct sc_condition sc_rc_condition[NUM_OBJ_TYPE][NUM_SC_CONDITION] = {
 		{-15, 5},		//SC_NEG
 		{25, 12},		//SC_NO
 		{35, 1},		//SC_POS
-		{-80,5},		//SC_ACCU
+		{-100,5},		//SC_ACCU
 		{-350,0},		//SC_ACCU_K
 	},	
 };

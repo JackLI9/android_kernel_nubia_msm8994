@@ -2299,7 +2299,7 @@
 			<0xfc302000 0x1000>,
 			<0xfa180000 0x1000>,
 			<0xfa181000 0x1000>;
-		qcom,ocmem-size = <524288>; /* 512 * 1024*/
+		qcom,imem-size = <524288>; /* 512 * 1024*/
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
 		clock-names = "core_clk", "core0_clk", "core1_clk", "core2_clk",
 			"iface_clk", "bus_clk", "mem_clk";
@@ -3402,42 +3402,42 @@
 
 		qcom,core-mapping {
 			qcom,cpu0-chars {
-				qcom,sensor = <&sensor_information7>;
+				sensor = <&sensor_information7>;
 				qcom,cpu-name = <&CPU0>;
 			};
 
 			qcom,cpu1-chars {
-				qcom,sensor = <&sensor_information8>;
+				sensor = <&sensor_information8>;
 				qcom,cpu-name = <&CPU1>;
 			};
 
 			qcom,cpu2-chars {
-				qcom,sensor = <&sensor_information9>;
+				sensor = <&sensor_information9>;
 				qcom,cpu-name = <&CPU2>;
 			};
 
 			qcom,cpu3-chars {
-				qcom,sensor = <&sensor_information10>;
+				sensor = <&sensor_information10>;
 				qcom,cpu-name = <&CPU3>;
 			};
 
 			qcom,cpu4-chars {
-				qcom,sensor = <&sensor_information13>;
+				sensor = <&sensor_information13>;
 				qcom,cpu-name = <&CPU4>;
 			};
 
 			qcom,cpu5-chars {
-				qcom,sensor = <&sensor_information14>;
+				sensor = <&sensor_information14>;
 				qcom,cpu-name = <&CPU5>;
 			};
 
 			qcom,cpu6-chars {
-				qcom,sensor = <&sensor_information15>;
+				sensor = <&sensor_information15>;
 				qcom,cpu-name = <&CPU6>;
 			};
 
 			qcom,cpu7-chars {
-				qcom,sensor = <&sensor_information6>;
+				sensor = <&sensor_information6>;
 				qcom,cpu-name = <&CPU7>;
 			};
 		};

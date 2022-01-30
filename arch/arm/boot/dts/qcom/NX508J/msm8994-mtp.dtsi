@@ -584,7 +584,7 @@
                 interrupt-parent = <&msm_gpio>;
                 interrupts = <40 0>;
                 ams,irq-gpio = <&msm_gpio 40 0x00>;
-                ams,light-percent = <200>;
+                ams,light-percent = <100>;
 	            vdd-supply = <&pm8994_l18>;
 	            vio-supply = <&pm8994_s4>;
 

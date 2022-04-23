@@ -170,9 +170,9 @@ static long wdg_handle_ti_event(struct plugin_wdg *p, unsigned long flag)
 		dev_dbg2(dev, "WD hook T61 check overflow\n");
 		if (ti_obs->count >= ti_cfg->min_check_count) {
 			if (time_after_eq(jiffies, ti_obs->time_wd_check_point + ti_cfg->interval_wd_check)) {
-				dev_info(dev, "mxt WD time out jiffise(%ld) check(%ld %ld) count %d(%d) retry %d(%d)\n",
-					jiffies, ti_obs->time_wd_check_point, ti_cfg->interval_wd_check,
-					ti_obs->count,ti_cfg->min_check_count,ti_obs->retry,ti_cfg->failed_reset_retry);
+//				dev_info(dev, "mxt WD time out jiffise(%ld) check(%ld %ld) count %d(%d) retry %d(%d)\n",
+//					jiffies, ti_obs->time_wd_check_point, ti_cfg->interval_wd_check,
+//					ti_obs->count,ti_cfg->min_check_count,ti_obs->retry,ti_cfg->failed_reset_retry);
 				ti_obs->failed++;
 				if (ti_obs->retry < ti_cfg->failed_reset_retry) {
 					if(p->reset)

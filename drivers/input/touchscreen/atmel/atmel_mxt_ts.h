@@ -40,6 +40,7 @@ enum {
 /* The platform data for the Atmel maXTouch touchscreen driver */
 struct mxt_platform_data {
 	unsigned long irqflags;
+	u32 resetflags;
 /*
 	u8 t19_num_keys;
 	const unsigned int *t19_keymap;
@@ -49,17 +50,12 @@ struct mxt_platform_data {
 	const u8 *num_keys;  //len is NUM_KEY_TYPE
 	const unsigned int (*keymap)[MAX_KEYS_SUPPORTED_IN_DRIVER];
 	unsigned long gpio_reset;
-	u32 reset_gpio_flags;
-	unsigned long gpio_irq;
-	u32 irq_gpio_flags;
+	unsigned long irq_gpio;
 	const char *cfg_name;
 #if defined(CONFIG_MXT_REPORT_VIRTUAL_KEY_SLOT_NUM)
 	unsigned int max_y_t;  //touch max y
 	struct mxt_virtual_key_space vkey_space_ratio;
 #endif
-
-	bool	i2c_pull_up;
-	bool	digital_pwr_regulator;
 
 	const struct mxt_config_info *config_array;
 };

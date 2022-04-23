@@ -228,19 +228,20 @@ static int clip_pa_hook_t9_t100_points_scraux(struct plugin_clip *p, struct scr_
 	int area;
 	int ret = 0;
 
-	area = in->area_tch + in->area_atch;
+	area = in->area_tch + in->area_atch;	
 	if (in->num_tch >=pa_cfg->numtch && 
 		area >= pa_cfg->thld &&
 		in->area_tch >= pa_cfg->thld_tch &&
 		in->area_atch >= pa_cfg->thld_atch &&
 		in->area_inttch >= pa_cfg->intthld) {
-		set_flag(CL_SUBFLAG_POINT_INVALID,&pa_obs->flag);
+		if(!test_and_set_flag(CL_SUBFLAG_POINT_INVALID,&pa_obs->flag))
+			ret = -ERANGE;
 	}else {
 		if (in->num_tch == 0)
 			clear_flag(CL_SUBFLAG_POINT_INVALID,&pa_obs->flag);
 	}
 
-	dev_info2(dev,  "[MXT] scr num %d(%d) thld %d(%d) %d(%d) %d(%d) %d(%d) flag=0x%lx ret %d\n",
+	dev_dbg(dev,  "[mxt] scr num %d(%d) thld %d(%d) %d(%d) %d(%d) %d(%d) flag=0x%lx ret %d\n",
 		in->num_tch , pa_cfg->numtch, 
 		area , pa_cfg->thld ,
 		in->area_tch , pa_cfg->thld_tch ,
@@ -248,9 +249,6 @@ static int clip_pa_hook_t9_t100_points_scraux(struct plugin_clip *p, struct scr_
 		in->area_inttch , pa_cfg->intthld,
 		pa_obs->flag,
 		ret);
-
-	if(test_flag(CL_SUBFLAG_POINT_INVALID,&pa_obs->flag))
-		ret = -ERANGE;
 
 	return ret;
 }
@@ -269,7 +267,7 @@ static int clip_cl_hook_t9_t100_points(struct plugin_clip *p, int id, int x, int
 		for (i = 0; i < NUM_CLIP_CL_AREA; i++) {
 			if (x >= cl_cfg->area[i].x0 && x <=  cl_cfg->area[i].x1 &&
 				y >= cl_cfg->area[i].y0 && y <=  cl_cfg->area[i].y1) {
-				//printk(KERN_INFO "[MXT] inrange\n");
+				//printk(KERN_INFO "[mxt] inrange\n");
 				ret = -ERANGE;
 				break;
 			}
@@ -307,7 +305,7 @@ static int clip_cl_hook_t9_t100_points(struct plugin_clip *p, int id, int x, int
 		clear_flag(CL_SUBFLAG_POINT_INVALID,&cl_obs->flag);
 	}
 
-	//printk(KERN_INFO "[MXT] flag %lx ret %d\n",cl_obs->flag,ret);
+	//printk(KERN_INFO "[mxt] flag %lx ret %d\n",cl_obs->flag,ret);
 
 	if (test_flag(CL_SUBFLAG_POINT_INVALID,&cl_obs->flag))
 		return -ERANGE;
@@ -551,8 +549,10 @@ static int plugin_clip_hook_t9_t100_scraux(struct plugin_clip *p, struct scr_inf
 		pa = clip_pa_hook_t9_t100_points_scraux(p, in, flag);
 		if (pa ==  -ERANGE)
 			in->status |= MXT_SCRAUX_STS_SUP;
+		/*   //don't change the flag if sup already set
 		else
 			in->status &= ~MXT_SCRAUX_STS_SUP;
+		*/
 	}
 
 	dev_dbg(dev,  "[mxt] scr status %x pa %d\n",in->status, pa);
@@ -567,7 +567,7 @@ static void plugin_clip_reset_slots_hook(struct plugin_clip *p)
 {
 	struct clp_observer *obs = p->obs;
 
-	memset(&obs->touch_id_list, 0, sizeof(*obs) - offsetof(struct clp_observer,touch_id_list));
+	memset(&obs->touch_id_list, 0, sizeof(*obs) - offsetof(struct clp_observer,touch_id_list));  //clear data after touch_id_list
 }
 
 /*
@@ -644,17 +644,17 @@ static ssize_t clip_cl_show(struct plugin_clip *p, char *buf, size_t count)
 	if (count > 0) {
 		for (i = 0; i < NUM_CLIP_CL_AREA; i++) {
 			offset += scnprintf(buf + offset, count - offset, "CL area[%d]: %d,%d %d,%d\n", i,
-			cl_cfg->area[i].x0,cl_cfg->area[i].y0,
-			cl_cfg->area[i].x1,cl_cfg->area[i].y1);
-	}
+				cl_cfg->area[i].x0,cl_cfg->area[i].y0,
+				cl_cfg->area[i].x1,cl_cfg->area[i].y1);
+		}
 
-	offset += scnprintf(buf + offset, count - offset, "CL dist: %d,%d\n",
-		cl_cfg->distance.x,cl_cfg->distance.y);
+		offset += scnprintf(buf + offset, count - offset, "CL dist: %d,%d\n",
+			cl_cfg->distance.x,cl_cfg->distance.y);
 
-	offset += scnprintf(buf + offset, count - offset, "CL invalid: ");
-	for (i = 0; i < MAX_TRACE_POINTS; i++) {
-		if (test_flag(CL_SUBFLAG_POINT_INVALID, &cl_obs[i].flag))
-			offset += scnprintf(buf + offset, count - offset, "%d ", i);
+		offset += scnprintf(buf + offset, count - offset, "CL invalid: ");
+		for (i = 0; i < MAX_TRACE_POINTS; i++) {
+			if (test_flag(CL_SUBFLAG_POINT_INVALID, &cl_obs[i].flag))
+				offset += scnprintf(buf + offset, count - offset, "%d ", i);
 		}
 		offset += scnprintf(buf + offset, count - offset, "\n");
 	}
@@ -685,23 +685,23 @@ static ssize_t clip_sup_show(struct plugin_clip *p, char *buf, size_t count)
 		for (i = 0; i < NUM_RESTICTS; i++) {
 			for (j = 0; j< NUM_CLIP_SUP_AREA; j++) {
 				offset += scnprintf(buf + offset, count, "SUP area[%d-%d]: %d,%d %d,%d\n", i,j,
-				sup_cfg[i].area[j].x0,sup_cfg[i].area[j].y0,
-				sup_cfg[i].area[j].x1,sup_cfg[i].area[j].y1);
+					sup_cfg[i].area[j].x0,sup_cfg[i].area[j].y0,
+					sup_cfg[i].area[j].x1,sup_cfg[i].area[j].y1);
+			}
 		}
-	}
 
-	for (i = 0; i < NUM_RESTICTS; i++) {
-		offset += scnprintf(buf + offset, count, "SUP range[%d]: %d %d\n",i,
-			sup_cfg[i].range[RANGE_THLD],sup_cfg[i].range[RANGE_HYSIS]);
-	}
-	for (i = 0; i < NUM_RESTICTS; i++) {
-		offset += scnprintf(buf + offset, count, "SUP range internal[%d]: %d %d\n",i,
-			sup_cfg[i].range_internal[RANGE_THLD],sup_cfg[i].range_internal[RANGE_HYSIS]);
-	}
+		for (i = 0; i < NUM_RESTICTS; i++) {
+			offset += scnprintf(buf + offset, count, "SUP range[%d]: %d %d\n",i,
+				sup_cfg[i].range[RANGE_THLD],sup_cfg[i].range[RANGE_HYSIS]);
+		}
+		for (i = 0; i < NUM_RESTICTS; i++) {
+			offset += scnprintf(buf + offset, count, "SUP range internal[%d]: %d %d\n",i,
+				sup_cfg[i].range_internal[RANGE_THLD],sup_cfg[i].range_internal[RANGE_HYSIS]);
+		}
 
-	offset += scnprintf(buf + offset, count - offset, "SUP invalid: ");
-	for (i = 0; i < MAX_TRACE_POINTS; i++) {
-		if (test_flag(CL_SUBFLAG_POINT_INVALID, &sup_obs[i].flag))
+		offset += scnprintf(buf + offset, count - offset, "SUP invalid: ");
+		for (i = 0; i < MAX_TRACE_POINTS; i++) {
+			if (test_flag(CL_SUBFLAG_POINT_INVALID, &sup_obs[i].flag))
 				offset += scnprintf(buf + offset, count - offset, "%d ", i);
 		}
 		offset += scnprintf(buf + offset, count - offset, "\n");

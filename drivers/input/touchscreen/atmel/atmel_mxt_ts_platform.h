@@ -24,17 +24,13 @@
 //#define CONFIG_MXT_SELFCAP_TUNE
 
 //#define CONFIG_MXT_PLATFORM_MTK
+//#define CONFIG_MXT_PLATFORM_QUALCOMM
+
+#define CONFIG_FB_PM
+#define CONFIG_MXT_IRQ_NESTED
 #define CONFIG_DUMMY_PARSE_DTS
-#define CONFIG_MXT_PLATFORM_QUALCOMM
-#if defined(CONFIG_MXT_PLATFORM_MTK)
-#	define CONFIG_MXT_IRQ_WORKQUEUE
-#	define CONFIG_MXT_EXTERNAL_TRIGGER_IRQ_WORKQUEUE
-#	define CONFIG_MXT_EXTERNAL_MODULE
-#	define CONFIG_MXT_I2C_DMA
-#else
-#	define CONFIG_FB_PM
-#	define CONFIG_MXT_IRQ_NESTED
-#endif
+#define CONFIG_HAS_POR
+
 
 #if defined(CONFIG_MXT_PLATFORM_MTK)
 #include <mach/mt_pm_ldo.h>
@@ -78,19 +74,10 @@ static struct mxt_data *mxt_g_data;
 static void board_pulse_irq_thread(void);
 #endif
 
-/*** ZTEMT start ***/
-extern int mxt_rst_number;
-extern int mxt_int_number;
-#define MXT_RST_PORT    mxt_rst_number //gpio_to_irq(mxt_rst_number)
-#define MXT_INT_PORT    mxt_int_number //gpio_to_irq(mxt_int_number)
-
-#define ATMEL_PINCTRL_STATE_SLEEP "atmel_pin_suspend"
-#define ATMEL_PINCTRL_STATE_DEFAULT "atmel_pin_active"
-/*ZTEMT end*/
-
-static inline void board_gpio_init(const struct mxt_platform_data *pdata)
+static inline int board_gpio_init(const struct mxt_platform_data *pdata)
 {
-
+   int  err = 0;
+    static int once_time = 0;
 	// if gpio init in board, or use regulator , skip this function
 
 	/* set irq pin input/pull high */
@@ -101,114 +88,51 @@ static inline void board_gpio_init(const struct mxt_platform_data *pdata)
 	/*		msleep(50);			*/
 	/*	   set reset output 1 	*/
 	/*		msleep(200);		*/
-
-/*#if defined(CONFIG_MXT_PLATFORM_MTK)
-	mt_set_gpio_mode(GPIO_CTP_EINT_PIN, GPIO_CTP_EINT_PIN_M_EINT);
-	mt_set_gpio_dir(GPIO_CTP_EINT_PIN, GPIO_DIR_IN);
-	mt_set_gpio_pull_enable(GPIO_CTP_EINT_PIN, GPIO_PULL_ENABLE);
-	mt_set_gpio_pull_select(GPIO_CTP_EINT_PIN, GPIO_PULL_UP);
-
-	mt_set_gpio_mode(GPIO_CTP_RST_PIN, GPIO_CTP_RST_PIN_M_GPIO);
-	mt_set_gpio_dir(GPIO_CTP_RST_PIN, GPIO_DIR_OUT);
-	mt_set_gpio_out(GPIO_CTP_RST_PIN, GPIO_OUT_ZERO);
-	msleep(10);
-	hwPowerOn(MT6323_POWER_LDO_VGP1, VOL_2800, "TP");
-	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_1800, "TP");
-	msleep(50);
-	mt_set_gpio_out(GPIO_CTP_RST_PIN, GPIO_OUT_ONE);
-#if 0
-	msleep(50);
-	mt_set_gpio_out(GPIO_CTP_RST_PIN, GPIO_OUT_ZERO);
-	msleep(50);
-	mt_set_gpio_out(GPIO_CTP_RST_PIN, GPIO_OUT_ONE);
-	//printk("%s:reset-gpio:%d\n",__func__, mt_get_gpio_out(GPIO_CTP_RST_PIN));
-#endif
-	msleep(200);
-#endif
-*/
-#if defined(CONFIG_MXT_PLATFORM_QUALCOMM)
-    /*** ZTEMT start ***/
-#if 1
-	int rc = 0;
-
-    if (!pdata) {
-		printk("ATMEL ERROR: NULL Pointer detected!\n");
-		WARN_ON(1);
-		//return -EINVAL;
-	}
-	/* reset, irq gpio info */
-   // pdata->gpio_reset = MXT_RST_PORT;
-   // pdata->gpio_irq = MXT_INT_PORT;
-
-   // printk("------pdata->gpio_reset---------: %d  MXT_RST_PORT= %ud \n",(pdata->gpio_reset),mxt_rst_number);
-   // printk("------pdata->gpio_irq-----------: %d  MXT_INT_PORT= %ud \n",(pdata->gpio_irq), mxt_int_number);
-    printk("--------mxt_rst_number------------: %ud\n",mxt_rst_number);
-    printk("--------mxt_int_number------------: %ud\n",mxt_int_number);
-
-	if(!gpio_is_valid(mxt_rst_number))
-		printk("ATMEL ERROR: gpio_is_valid(MXT_RST_PORT)!\n");//return -ENODEV;
-        rc = gpio_request(mxt_rst_number, "MXT_RST_PORT");
-    if (rc < 0) 
-    	{
-        printk("Failed to request GPIO:%ud, ERRNO:%d", (s32)mxt_rst_number, rc);
-        rc = -ENODEV;
-    	}
-   	 else
-   	 {
-            gpio_direction_output(mxt_rst_number, 0);
-            msleep(50);
-            gpio_direction_output(mxt_rst_number, 1);
-            msleep(50);
-		
-   	 }
-
-	if(!gpio_is_valid(mxt_int_number))
-		printk("ATMEL ERROR: gpio_is_valid(MXT_INT_PORT)!\n");//return -ENODEV;
-
-	rc = gpio_request(mxt_int_number, "MXT_INT_PORT");
-	if (rc < 0) {
-			printk("Failed request ATMEL_I2C_IRQ_GPIO.\n");
-			//return rc;
+    if(!once_time){
+	    if (gpio_is_valid(pdata->irq_gpio)) {
+			err = gpio_request(pdata->irq_gpio, "atmel_irq_gpio");
+			if (err) {
+				printk("irq gpio request failed\n");
+			}
 		}
-	gpio_direction_input(mxt_int_number);
 
-    printk("%s: INIT ATMEL RST gpio=%ud and IRQ gpio=%ud r=%d\n",__func__, mxt_rst_number, mxt_int_number, rc);
-	
-#else
-    /*ZTEMT end*/
-
-	// if gpio init in board, null this
-	//don't use the read_chg in mxt_wait_for_chg, because the msg can be readout by interrupt thread
-	MXT_GPIO_REQUEST(MXT_INT_PORT, "MXT_INT_IRQ");
-	MXT_GPIO_REQUEST(MXT_RST_PORT, "MXT_RST_PORT");
-	
-	// set irq pin input/pull high
-	MXT_GPIO_AS_INPUT(MXT_INT_PORT);
-	// set reset output 0
-	MXT_GPIO_OUTPUT(MXT_RST_PORT, 0);
-	msleep(10);
-	// set reset output 1
-	MXT_GPIO_OUTPUT(MXT_RST_PORT, 1);
-	msleep(200);
-#endif
-    return;
-
-#endif
+		if (gpio_is_valid(pdata->gpio_reset)) {
+			err = gpio_request(pdata->gpio_reset, "atmel_gpio_reset");
+			if (err) {
+				printk("reset gpio request failed\n");
+			}
+		}
+		once_time = 1;
+    	}
+	err = gpio_direction_input(pdata->irq_gpio); // irq input.
+		if (err) {
+			printk("set_direction for irq gpio failed\n");
+			goto free_irq_gpio;
+		}
+    err = gpio_direction_output(pdata->gpio_reset, 1); // reset output.
+		if (err) {
+			printk("set_direction for reset gpio failed\n");
+			goto free_gpio_reset;
+		}
+		// reset TP
+		gpio_set_value(pdata->gpio_reset, 0);
+        msleep(10);
+        gpio_set_value(pdata->gpio_reset, 1);
+        msleep(200);
+return err;
+		
+    free_gpio_reset:
+	if (gpio_is_valid(pdata->gpio_reset))
+		gpio_free(pdata->gpio_reset);
+    free_irq_gpio:
+	if (gpio_is_valid(pdata->irq_gpio))
+	{
+		printk("%s, free_irq_gpio, irq_gpio=%ld\n", __func__, pdata->irq_gpio);
+		gpio_free(pdata->irq_gpio);
+	}
+	return err;
 }
-static inline void board_gpio_deinit(const struct mxt_platform_data *pdata)
-{
-#if defined(CONFIG_MXT_PLATFORM_QUALCOMM)
-#if 1
-/*** ZTEMT start ***/
-    gpio_free(mxt_int_number);
-    gpio_free(mxt_rst_number);
-/*ZTEMT end*/
-#else
-	MXT_GPIO_FREE(MXT_INT_PORT);
-	MXT_GPIO_FREE(MXT_RST_PORT);
-#endif
-#endif   
-}
+
 
 static void mxt_regulator_disable(void * device);
 static void mxt_regulator_enable(void * device);
@@ -230,12 +154,21 @@ static inline int board_hw_reset(const struct mxt_platform_data *pdata)
 	//write your hw reset here, and return 0
 	//if no, returen -EIO
 
-    gpio_direction_output(mxt_rst_number, 0);
+    gpio_direction_output(pdata->gpio_reset, 0);
     msleep(50);
-    gpio_direction_output(mxt_rst_number, 1);
+    gpio_direction_output(pdata->gpio_reset, 1);
     msleep(50);
 
 	return 0;
+}
+
+static inline void board_gpio_deinit(const struct mxt_platform_data *pdata)
+{
+ if (gpio_is_valid(pdata->gpio_reset))
+		gpio_free(pdata->gpio_reset);
+    if (gpio_is_valid(pdata->irq_gpio))
+		printk("%s, free_irq_gpio, irq_gpio=%ld\n", __func__, pdata->irq_gpio);
+		gpio_free(pdata->irq_gpio);
 }
 
 static void board_init_irq(const struct mxt_platform_data *pdata)
@@ -250,87 +183,32 @@ static void board_init_irq(const struct mxt_platform_data *pdata)
 		<a>shouldn't set auto_unmask bit
 		<b>.irqflags = IRQF_TRIGGER_LOW
 */
-#if defined(CONFIG_MXT_PLATFORM_MTK)
-	#if defined(CONFIG_USE_FALLING_IRQ) 
-		//.irqflags = IRQF_TRIGGER_FALLING
-		//CUST_EINTF_TRIGGER_FALLING
-		//mt_eint_set_sens(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINT_TOUCH_PANEL_SENSITIVE);
-		mt_eint_set_hw_debounce(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINT_TOUCH_PANEL_DEBOUNCE_CN);
-		mt_eint_registration(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINTF_TRIGGER_FALLING, board_pulse_irq_thread, 1); 
-		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
-	#else
-		//.irqflags = IRQF_TRIGGER_LOW
-		//CUST_EINTF_TRIGGER_LOW_LEVEL
-	#if defined(CONFIG_6575)
-		mt65xx_eint_set_sens(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINT_LEVEL_SENSITIVE);
-		mt65xx_eint_set_hw_debounce(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINT_TOUCH_PANEL_DEBOUNCE_CN);
-		mt65xx_eint_registration(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINT_TOUCH_PANEL_DEBOUNCE_EN, CUST_EINT_TOUCH_PANEL_POLARITY, board_pulse_irq_thread, /*1*/0); 
-		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
-	#endif
-	#if defined(CONFIG_6592)
-		mt_eint_set_hw_debounce(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINT_TOUCH_PANEL_DEBOUNCE_CN);
-		mt_eint_registration(CUST_EINT_TOUCH_PANEL_NUM, /*CUST_EINTF_TRIGGER_FALLING*/EINTF_TRIGGER_LOW, board_pulse_irq_thread, 0); 
-		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
-	#endif
-#endif
-#endif
 
-#if defined(CONFIG_MXT_PLATFORM_MTK_EXAMPLE_2)
-	//.irqflags = IRQF_TRIGGER_FALLING
-	//CUST_EINTF_TRIGGER_FALLING
-	mt_set_gpio_mode(GPIO_CTP_EINT_PIN, GPIO_CTP_EINT_PIN_M_EINT);
-	mt_set_gpio_dir(GPIO_CTP_EINT_PIN, GPIO_DIR_IN);
-	
-	mt_set_gpio_pull_enable(GPIO_CTP_EINT_PIN, GPIO_PULL_ENABLE);
-	mt_set_gpio_pull_select(GPIO_CTP_EINT_PIN, GPIO_PULL_UP);
-	msleep(50);
-
-	mt_eint_registration(CUST_EINT_TOUCH_PANEL_NUM, CUST_EINTF_TRIGGER_FALLING, board_pulse_irq_thread, 1);
-	mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
-#endif
 }
 
 static inline void board_enable_irq(const struct mxt_platform_data *pdata, unsigned int irq)
 {
-#if defined(CONFIG_MXT_PLATFORM_MTK)
-	mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
-#else
 	enable_irq(irq);
-#endif
 }
 
 static inline void board_enable_irq_wake(const struct mxt_platform_data *pdata, unsigned int irq)
 {
-#if defined(CONFIG_MXT_PLATFORM_MTK)
-#else
 	enable_irq_wake(irq);
-#endif
 }
 
 static inline void board_disable_irq_wake(const struct mxt_platform_data *pdata, unsigned int irq)
 {
-#if defined(CONFIG_MXT_PLATFORM_MTK)
-#else
 	disable_irq_wake(irq);
-#endif
 }
 
 static inline void board_disable_irq(const struct mxt_platform_data *pdata, unsigned int irq)
 {
-#if defined(CONFIG_MXT_PLATFORM_MTK)
-	mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
-#else
 	disable_irq(irq);
-#endif
 }
 
 static inline void board_free_irq(const struct mxt_platform_data *pdata, unsigned int irq, void *dev_id)
 {	
-#if defined(CONFIG_MXT_PLATFORM_MTK)
-	mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
-#else
 	free_irq(irq,dev_id);
-#endif
 }
 
 #endif /* __LINUX_ATMEL_MXT_TS_PLATFORM_H */

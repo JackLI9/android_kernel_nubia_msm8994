@@ -865,6 +865,7 @@ static int mxt_set_t6(void *pl_dev,u16 cmd_offset, u8 value, bool wait)
 {
 	struct plug_interface *pl = pl_dev;
 	struct mxt_data *data = pl->dev;
+
 	return mxt_t6_command(data, cmd_offset, value, wait);
 }
 
@@ -1359,6 +1360,7 @@ static void mxt_plugin_pre_process(struct plug_interface *pl, bool in_boot)
 			if (pl->msc->pre_process)
 				pl->msc->pre_process(pl->msc, pl->observer.flag);
 		}
+
 		if (test_flag(PL_STATUS_FLAG_PLUG_CLIP,&obs->flag)) {
 			if (pl->clp->pre_process)
 				pl->clp->pre_process(pl->clp, pl->observer.flag);
@@ -1576,6 +1578,7 @@ static void mxt_plugin_hook_t68(struct plug_interface *pl, u8* msg)
 	if (pl->msc->hook_t68)
 		pl->msc->hook_t68(pl->msc, msg);
 }
+
 static void mxt_plugin_hook_t72(struct plug_interface *pl, u8* msg)
 {
 	struct plug_observer *obs = &pl->observer;
@@ -1620,12 +1623,15 @@ static int mxt_plugin_hook_t9(struct plug_interface *pl, int id, int x, int y, u
 
 	if (pl->cal->hook_t9)
 		pl->cal->hook_t9(pl->cal, id, x, y, info[0]);
+
 	if (test_flag(PL_STATUS_FLAG_PLUG_CLIP,&obs->flag)) {
 		if (pl->clp->hook_t9)
 			ret = pl->clp->hook_t9(pl->clp, id, x, y, info);
 	}
+
 	return ret;
 }
+
 static int mxt_plugin_hook_t100(struct plug_interface *pl, int id, int x, int y, struct ext_info *in)
 {
 	struct plug_observer *obs = &pl->observer;
@@ -1633,6 +1639,7 @@ static int mxt_plugin_hook_t100(struct plug_interface *pl, int id, int x, int y,
 	
 	if (!pl->inited)
 		return ret;
+
 	if (test_flag(PL_STATUS_FLAG_STOP,&obs->flag))
 		return ret;
 
@@ -1694,7 +1701,7 @@ static int mxt_plugin_hook_set_t7(struct plug_interface *pl, bool sleep)
 			dev_info(dev, "mxt_plugin_hook_set_t7 wait flag 0x%lx, wait %d\n", 
 				obs->flag, wait);
 				
-			msleep(20);
+			msleep(5);
 		}while(--wait >= 0);
 
 		if (test_flag(PL_STATUS_FLAG_NOSUSPEND,&obs->flag))
@@ -1906,7 +1913,6 @@ static int mxt_plugin_start(struct plug_interface *pl, bool resume)
 
 	return ret;
 }
-
 
 static int mxt_plugin_stop(struct plug_interface *pl, bool suspend)
 {
@@ -2132,6 +2138,7 @@ static int mxt_plugin_pre_init(struct mxt_data *data)
 	}
 
 	clear_flag(PL_STATUS_FLAG_REG_INIT,&obs->flag);
+
 	return 0;
 }
 
@@ -2393,8 +2400,10 @@ static ssize_t mxt_plugin_show(struct device *dev,
 
 	if (pl->clp->show)
 		 pl->clp->show(pl->clp);
+
 	if (pl->wd->show)
 		 pl->wd->show(pl->wd);
+
 	return 0;
 }
 
@@ -2480,7 +2489,7 @@ static ssize_t mxt_plugin_store(struct device *dev,
 			pl->active_thread(pl->dev,MXT_EVENT_EXTERN);
 		return count;
 	} else {
-		//dev_dbg(dev, "Unknow count: %ud\n",count);
+		dev_dbg(dev, "Unknow count\n");
 		return -EINVAL;
 	}
 }
@@ -2501,12 +2510,12 @@ static ssize_t mxt_plugin_tag_show(struct device *dev,
 	dev_info(dev, "[mxt]Plug tag :\n");
 
 	if (data->info) {
-		count = scnprintf(buf + count, PAGE_SIZE - count, "CFG: %u.%u.%u ",
+		count = scnprintf(buf + count, PAGE_SIZE - count, "CFG: %u.%u.%u\n",
 				pl->init_cfg.t38.data[0],
 				pl->init_cfg.t38.data[1],
 				pl->init_cfg.t38.data[2]);
 
-		count += snprintf(buf + count, PAGE_SIZE - count, "%02X_%02X_%u.%u_%02X\n",
+		count += snprintf(buf + count, PAGE_SIZE - count, "FW: %02X_%02X_%u.%u_%02X\n",
 				data->info->family_id,
 				data->info->variant_id,
 				(data->info->version & 0xF0) >> 4,
@@ -2537,39 +2546,6 @@ static ssize_t mxt_plugin_tag_show(struct device *dev,
 	return count;
 }
 
-/*
-static ssize_t mxt_plugin_tag_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct mxt_data *data = dev_get_drvdata(dev);
-	struct plug_interface *pl = &data->plug;
-	int ret = 0;
-
-	if (!pl->inited)
-		return -ENODEV;
-	if (!data->info)
-		return 0;
-
-	dev_info(dev, "[mxt]Plug tag :\n");
-
-	ret = scnprintf(buf, PAGE_SIZE, " %u.%u.%u.%u.%u.%u.%u.%u \n %u.%u.%02X \n",
-				pl->init_cfg.t38.data[0],
-				pl->init_cfg.t38.data[1],
-				pl->init_cfg.t38.data[2],
-				pl->init_cfg.t38.data[3],
-				pl->init_cfg.t38.data[4],
-				pl->init_cfg.t38.data[5],
-				pl->init_cfg.t38.data[6],
-				pl->init_cfg.t38.data[7],
-				data->info->version >> 4,
-				data->info->version & 0xf,
-				data->info->build);
-
-	dev_info(dev, "[mxt] %s\n", buf);
-
-	return ret;
-}
-*/
 //add by ZTE ,20150414
 static ssize_t mxt_plugin_tag_uid_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -2596,7 +2572,6 @@ static ssize_t mxt_plugin_tag_uid_show(struct device *dev,
 	return ret;
 }
 //ZTE end ,20150414
-
 
 #if defined(CONFIG_MXT_CAL_WORKAROUND)
 static ssize_t mxt_plugin_cal_show(struct device *dev,
@@ -2720,37 +2695,6 @@ static ssize_t mxt_plugin_stylus_store(struct device *dev,
 	return ret;
 }
 
-static ssize_t mxt_plugin_wakeup_gesture_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct mxt_data *data = dev_get_drvdata(dev);
-	struct plug_interface *pl = &data->plug;
-
-	if (!pl->inited)
-		return -ENODEV;
-
-	return plugin_functon_op(pl, buf, 0, PL_FUNCTION_FLAG_WAKEUP_GESTURE, true);
-}
-
-static ssize_t mxt_plugin_wakeup_gesture_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct mxt_data *data = dev_get_drvdata(dev);
-	struct plug_interface *pl = &data->plug;
-	int ret;
-
-	if (!pl->inited)
-		return -ENODEV;
-
-	if (data->suspended)
-		return -ENODEV;
-
-	ret = plugin_functon_op(pl, (char *)buf, count, PL_FUNCTION_FLAG_WAKEUP_GESTURE, false);
-	if (pl->active_thread)
-		pl->active_thread(pl->dev,MXT_EVENT_EXTERN);
-	return ret;
-}
-
 static ssize_t mxt_plugin_gesture_list_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -2830,16 +2774,20 @@ static ssize_t mxt_plugin_clip_show(struct device *dev,
 
 	if (!pl->inited)
 		return -ENODEV;
+
 	return plugin_clip_show(pl->clp, buf, PAGE_SIZE);
 }
+
 static ssize_t mxt_plugin_clip_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct mxt_data *data = dev_get_drvdata(dev);
 	struct plug_interface *pl = &data->plug;
 	int ret;
+
 	if (!pl->inited)
 		return -ENODEV;
+
 	ret = plugin_clip_store(pl->clp, buf, count);
 	if (pl->active_thread)
 		pl->active_thread(pl->dev,MXT_EVENT_EXTERN);
@@ -2859,3 +2807,5 @@ static ssize_t mxt_plugin_clip_tag_show(struct device *dev,
 }
 
 #endif
+
+
